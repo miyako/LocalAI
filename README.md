@@ -35,6 +35,6 @@ export LLAMA_INCLUDE=llama.cpp-master
 * Windows
 
 ```
-set LLAMA_LIB=libllama.lib
+set LLAMA_LIB=llama.lib
 set LLAMA_INCLUDE=llama.cpp-master
 ```
