@@ -4,3 +4,5 @@ LocalAI/userPreferences.*
 LocalAI/Resources/bin/macOS/local-ai
 lib/*
 LocalAI/Data/*
+LocalAI/Project/DerivedData/methodAttributes.json
+LocalAI/Project/DerivedData/formAttributes.json
