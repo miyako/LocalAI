@@ -7,7 +7,12 @@ Class constructor($command : Text; $controller : 4D:C1709.Class)
 	End if 
 	
 	var $program : Text
-	$program:="local-ai"
+	Case of 
+		: (Is macOS:C1572) && (Get system info:C1571.macRosetta)
+			$program:="local-ai-x86_64"
+		Else 
+			$program:="local-ai"
+	End case 
 	
 	Super:C1705($program; $controller)
 	
