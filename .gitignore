@@ -1,6 +1,5 @@
 macOS/local-ai.dmg
 LocalAI/userPreferences.*
-LocalAI/Resources/bin/macOS/local-ai
 lib/*
 LocalAI/Data/*
 LocalAI/Project/DerivedData/methodAttributes.json
