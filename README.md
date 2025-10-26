@@ -1,4 +1,4 @@
-# local-ai
+# LocalAI
 Local inference engine
 
 ## Install Protocol Buffers Compiler `protoc`
