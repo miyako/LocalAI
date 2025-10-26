@@ -1,6 +1,6 @@
 Class extends _CLI
 
-Class constructor($command : Text; $controller : 4D:C1709.Class)
+Class constructor($controller : 4D:C1709.Class)
 	
 	If (Not:C34(OB Instance of:C1731($controller; cs:C1710._LocalAI_Controller)))
 		$controller:=cs:C1710._LocalAI_Controller
