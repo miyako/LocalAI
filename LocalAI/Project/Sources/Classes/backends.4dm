@@ -6,12 +6,23 @@ Class constructor
 	
 Function list() : Collection
 	
-	var $models : Collection
-	$models:=[]
+	var $backends : Collection
+	$backends:=[]
 	
 	var $command : Text
 	$command:=This:C1470.escape(This:C1470.executablePath)
-	$command+=" models list "
+	$command+=" backends list "
+	
+/*
+potentially error if system backends folder
+/usr/share/localai/backends
+does not exist
+*/
+	
+	var $backends_path : 4D:C1709.Folder
+	$backends_path:=Folder:C1567(fk home folder:K87:24)
+	$command+=" --backends-path="
+	$command+=This:C1470.escape(This:C1470.expand($backends_path).path)
 	
 	var $worker : 4D:C1709.SystemWorker
 	$worker:=This:C1470.controller.execute($command).worker
@@ -27,11 +38,11 @@ Function list() : Collection
 	$i:=1
 	
 	While (Match regex:C1019("(?m)^\\s*-\\s*(.+)$"; $resultText; $i; $pos; $len))
-		$models.push(Substring:C12($resultText; $pos{1}; $len{1}))
+		$backends.push(Substring:C12($resultText; $pos{1}; $len{1}))
 		$i:=$pos{0}+$len{0}
 	End while 
 	
-	return $models
+	return $backends
 	
 Function install($option : Variant; $formula : 4D:C1709.Function) : Collection
 	
@@ -66,29 +77,29 @@ Function install($option : Variant; $formula : 4D:C1709.Function) : Collection
 		$stdOut:=Not:C34(OB Instance of:C1731($option.output; 4D:C1709.File))
 		
 		$command:=This:C1470.escape(This:C1470.executablePath)
-		$command+=" models install "
+		$command+=" backends install "
 		
-		If (Value type:C1509($option.model)=Is text:K8:3) && ($option.model#"")
+		If (Value type:C1509($option.backend)=Is text:K8:3) && ($option.backend#"")
 			$command+=" "
-			$command+=This:C1470.escape($option.model)
-		Else 
-			continue  //mandatory
-		End if 
-		
-		If (Value type:C1509($option.models_path)=Is object:K8:27) && (OB Instance of:C1731($option.models_path; 4D:C1709.Folder))
-			$command+=" --models-path="
-			$command+=This:C1470.escape(This:C1470.expand($option.models_path).path)
+			$command+=This:C1470.escape($option.backend)
 		Else 
 			continue  //mandatory
 		End if 
 		
 		If (False:C215)
-			If (Value type:C1509($option.backends_path)=Is object:K8:27) && (OB Instance of:C1731($option.backends_path; 4D:C1709.Folder))
-				$command+=" --backends-path="
-				$command+=This:C1470.escape(This:C1470.expand($option.backends_path).path)
+			If (Value type:C1509($option.models_path)=Is object:K8:27) && (OB Instance of:C1731($option.models_path; 4D:C1709.Folder))
+				$command+=" --models-path="
+				$command+=This:C1470.escape(This:C1470.expand($option.models_path).path)
 			Else 
 				continue  //mandatory
 			End if 
+		End if 
+		
+		If (Value type:C1509($option.backends_path)=Is object:K8:27) && (OB Instance of:C1731($option.backends_path; 4D:C1709.Folder))
+			$command+=" --backends-path="
+			$command+=This:C1470.escape(This:C1470.expand($option.backends_path).path)
+		Else 
+			continue  //mandatory
 		End if 
 		
 		var $arg : Object
@@ -97,7 +108,7 @@ Function install($option : Variant; $formula : 4D:C1709.Function) : Collection
 		
 		For each ($arg; OB Entries:C1720($option))
 			Case of 
-				: (["data"; "model"; "models_path"; "backends_path"].includes($arg.key))
+				: (["data"; "backend"; "models_path"; "backends_path"].includes($arg.key))
 					continue
 			End case 
 			$valueType:=Value type:C1509($arg.value)

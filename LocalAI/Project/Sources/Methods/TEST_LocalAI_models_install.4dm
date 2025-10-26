@@ -12,11 +12,10 @@ Case of
 		$LocalAI:=cs:C1710.models.new()
 		
 /*
-mandatory
-models_path,backends_path
+models_path: mandatory
 model: name of model to install
 data : string passed to callback in $2.content 
-pass a subclass of _LocalAI_Controller to constructor 
+pass a subclass of _LocalAI_Controller to cs.models.new() above 
 to process onData, onDataError, etc.
 */
 		
@@ -25,9 +24,8 @@ to process onData, onDataError, etc.
 		$models.push({\
 			model: "localai@nomic-embed-text-v1.5"; \
 			data: "installed nomic-embed-text-v1.5"; \
-			models_path: Folder:C1567(fk desktop folder:K87:19).folder("models"); \
-			backends_path: Folder:C1567(fk desktop folder:K87:19).folder("backends")})
+			models_path: Folder:C1567(fk desktop folder:K87:19).folder("models")})
 		
-		$LocalAI.install($models; Formula:C1597(onModel))
+		$LocalAI.install($models; Formula:C1597(onInstall))
 		
 End case 
