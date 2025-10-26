@@ -2,18 +2,26 @@ Class extends _LocalAI
 
 Class constructor($controller : 4D:C1709.Class)
 	
-	Super:C1705("server"; $controller)
+	Super:C1705($controller)
 	
 Function run($option : Object) : 4D:C1709.SystemWorker
 	
 	var $command : Text
 	$command:=This:C1470.escape(This:C1470.executablePath)
 	
-	Case of 
-		: (Value type:C1509($option.models_path)=Is object:K8:27) && (OB Instance of:C1731($option.models_path; 4D:C1709.Folder)) && ($option.models_path.exists)
-			$command+=" --models-path="
-			$command+=This:C1470.escape(This:C1470.expand($option.models_path).path)
-	End case 
+	If (Value type:C1509($option.models_path)=Is object:K8:27) && (OB Instance of:C1731($option.models_path; 4D:C1709.Folder))
+		$command+=" --models-path="
+		$command+=This:C1470.escape(This:C1470.expand($option.models_path).path)
+	Else 
+		return   //mandatory
+	End if 
+	
+	If (Value type:C1509($option.backends_path)=Is object:K8:27) && (OB Instance of:C1731($option.backends_path; 4D:C1709.Folder))
+		$command+=" --backends-path="
+		$command+=This:C1470.escape(This:C1470.expand($option.backends_path).path)
+	Else 
+		return   //mandatory
+	End if 
 	
 	var $arg : Object
 	var $valueType : Integer
@@ -21,7 +29,7 @@ Function run($option : Object) : 4D:C1709.SystemWorker
 	
 	For each ($arg; OB Entries:C1720($option))
 		Case of 
-			: (["models_path"].includes($arg.key))
+			: (["models_path"; "backends_path"].includes($arg.key))
 				continue
 		End case 
 		$valueType:=Value type:C1509($arg.value)
@@ -38,4 +46,4 @@ Function run($option : Object) : 4D:C1709.SystemWorker
 		End case 
 	End for each 
 	
-	return This:C1470.controller.execute($command; $isStream ? $option.model : Null:C1517; $option.data).worker
+	return This:C1470.controller.execute($command; Null:C1517; $option.data).worker
