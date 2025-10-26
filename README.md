@@ -1,12 +1,13 @@
 # local-ai
 Local inference engine
 
-## install Protocol Buffers Compiler `protoc`
+## Install Protocol Buffers Compiler `protoc`
 
 * macOS
  
 ```
 brew install protobuf
+export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
 * Windows
@@ -15,12 +16,13 @@ brew install protobuf
 vcpkg install protobuf --triplet x64-windows
 ```
 
+Make sure `PATH` finds `protoc`
+
 ## install golang dependencies
 
 ```
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
 ## set environment
@@ -30,6 +32,16 @@ export PATH=$PATH:$(go env GOPATH)/bin
 ```
 export LLAMA_LIB=libllama.a
 export LLAMA_INCLUDE=llama.cpp-master 
+mkdir -p pkg/grpc/proto
+protoc --experimental_allow_proto3_optional \
+  -Ibackend/ \
+  --go_out=pkg/grpc/proto/ \
+  --go_opt=paths=source_relative \
+  --go-grpc_out=pkg/grpc/proto/ \
+  --go-grpc_opt=paths=source_relative \
+  backend/backend.proto
+GOARCH=arm64 go build -tags "llamacpp,tflite" -o localai_arm64 ./cmd/local-ai/main.go
+GOARCH=amd64 go build -tags "llamacpp,tflite" -o localai_amd64 ./cmd/local-ai/main.go
 ```
 
 * Windows
@@ -37,4 +49,7 @@ export LLAMA_INCLUDE=llama.cpp-master
 ```
 set LLAMA_LIB=llama.lib
 set LLAMA_INCLUDE=llama.cpp-master
+mkdir -p pkg\grpc\proto
+protoc --experimental_allow_proto3_optional -Ibackend --go_out=pkg\grpc\proto --go_opt=paths=source_relative --go-grpc_out=pkg\grpc\proto --go-grpc_opt=paths=source_relative backend\backend.proto
+go build -tags "llamacpp" -o local-ai.exe .\cmd\local-ai\main.go
 ```
