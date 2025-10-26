@@ -1,2 +1,6 @@
 macOS/local-ai.dmg
 macOS/local-ai
+LocalAI/userPreferences.*
+LocalAI/Resources/bin/macOS/local-ai
+lib/*
+LocalAI/Data/*
