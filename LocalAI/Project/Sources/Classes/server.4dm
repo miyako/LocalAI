@@ -2,7 +2,7 @@ Class constructor
 	
 	var __WORKER__ : 4D:C1709.SystemWorker
 	
-Function run($option : Object)
+Function start($option : Object)
 	
 	If ($option=Null:C1517) || (Value type:C1509($option)#Is object:K8:27)
 		return 
@@ -11,11 +11,11 @@ Function run($option : Object)
 	var $signal : 4D:C1709.Signal
 	$signal:=New signal:C1641("LocalAI")
 	
-	CALL WORKER:C1389($signal.description; This:C1470._run; $option; $signal)
+	CALL WORKER:C1389($signal.description; This:C1470._start; $option; $signal)
 	
 	$signal.wait()
 	
-Function _run($option : Object; $signal : 4D:C1709.Signal)
+Function _start($option : Object; $signal : 4D:C1709.Signal)
 	
 	var $LocalAI : cs:C1710._server
 	$LocalAI:=cs:C1710._server.new()
@@ -23,7 +23,7 @@ Function _run($option : Object; $signal : 4D:C1709.Signal)
 	If (OB Instance of:C1731(__WORKER__; 4D:C1709.SystemWorker)) && (Not:C34(__WORKER__.terminated))
 		//already started
 	Else 
-		__WORKER__:=$LocalAI.run($option)
+		__WORKER__:=$LocalAI.start($option)
 	End if 
 	
 	$signal.trigger()
