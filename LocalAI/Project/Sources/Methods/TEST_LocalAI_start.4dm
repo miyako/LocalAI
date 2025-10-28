@@ -9,7 +9,7 @@ mandatory
 models_path,backends_path
 */
 
-$LocalAI.run({\
+$LocalAI.start({\
 models_path: Folder:C1567(fk desktop folder:K87:19).folder("models"); \
 backends_path: Folder:C1567(fk desktop folder:K87:19).folder("backends"); \
 disable_web_ui: False:C215; \

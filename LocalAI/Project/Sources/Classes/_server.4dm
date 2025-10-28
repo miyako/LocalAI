@@ -4,7 +4,7 @@ Class constructor($controller : 4D:C1709.Class)
 	
 	Super:C1705($controller)
 	
-Function run($option : Object) : 4D:C1709.SystemWorker
+Function start($option : Object) : 4D:C1709.SystemWorker
 	
 	var $command : Text
 	$command:=This:C1470.escape(This:C1470.executablePath)
