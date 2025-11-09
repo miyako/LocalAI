@@ -46,4 +46,18 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 		End case 
 	End for each 
 	
+	var $HOME : 4D:C1709.Folder
+	$HOME:=This:C1470.expand(Folder:C1567(fk home folder:K87:24).folder("LocalAI"))
+	$HOME.create()
+	
+	//If (Is macOS)
+	//This.controller.variables.LOCALAI_HOME:=$HOME.path
+	//Else 
+	//This.controller.variables.LOCALAI_HOME:=$HOME.platformPath
+	//End if 
+	
+	$command+=(" --localai-config-dir "+This:C1470.escape($HOME.path)+" ")
+	
+	SET TEXT TO PASTEBOARD:C523($command)
+	
 	return This:C1470.controller.execute($command; Null:C1517; $option.data).worker
