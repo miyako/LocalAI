@@ -1,6 +1,6 @@
 Class extends _LocalAI
 
-Class constructor
+Class constructor($controller : 4D:C1709.Class)
 	
 	Super:C1705($controller)
 	
