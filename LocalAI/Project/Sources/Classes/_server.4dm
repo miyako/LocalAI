@@ -57,7 +57,5 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 	//End if 
 	
 	$command+=(" --localai-config-dir "+This:C1470.escape($HOME.path)+" ")
-	
-	SET TEXT TO PASTEBOARD:C523($command)
-	
+		
 	return This:C1470.controller.execute($command; Null:C1517; $option.data).worker
