@@ -11,7 +11,7 @@ layout: default
 
 #### Abstract
 
-[LocalAI](https://github.com/mudler/LocalAI) is a modular ecosystem designed to locally run multiple AI models and backends. It primarily targets Linux, Docker or Windows Subsystem for Linux, but native macOS and Windows distribution is possible with limited choice of backends.
+[LocalAI](https://github.com/mudler/LocalAI) is a modular ecosystem designed to locally run multiple AI models and backends. It primarily targets Linux, Docker or Windows Subsystem for Linux, but native macOS and Windows distribution is also possible with limited choice of backends.
 
 - llama.cpp
 - stable-diffusion.cpp
