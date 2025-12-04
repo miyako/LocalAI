@@ -21,7 +21,7 @@ layout: default
 
 #### Usage
 
-Instantiate `cs.LocalAI.server` and call `.start()` in your *On Startup* database method:
+Instantiate `cs.LocalAI.models` and call `.install()` to install a model.
 
 ```4d
 #DECLARE($params : Object)
@@ -54,6 +54,57 @@ Case of
         $LocalAI.install($models; Formula(onModelInstall))
         
 End case 
+```
+
+Instantiate `cs.LocalAI.backends` and call `.install()` to install a backend.
+
+```4d
+#DECLARE($params : Object)
+
+Case of 
+    : (Count parameters=0)
+        
+        CALL WORKER(1; Current method name; {})
+        
+    Else 
+        
+        var $LocalAI : cs.LocalAI.backends
+        $LocalAI:=cs.LocalAI.backends.new()
+                
+        var $backends : Collection
+        $backends:=[]
+        
+        Case of 
+            : (Is macOS) && (Not(System info.macRosetta))
+                $backends.push({\
+                backend: "localai@metal-llama-cpp"; \
+                data: "installed metal-llama-cpp"; \
+                backends_path: Folder(fk desktop folder).folder("backends")})
+            Else 
+                $backends.push({\
+                backend: "localai@cpu-llama-cpp"; \
+                data: "installed cpu-llama-cpp"; \
+                backends_path: Folder(fk desktop folder).folder("backends")})
+        End case 
+        
+        $LocalAI.install($backends; Formula(onBackendInstall))
+        
+End case 
+```
+
+Instantiate `cs.LocalAI.server` and call `.start()` to start the server:
+
+```4d
+var $LocalAI : cs.LocalAI.server
+$LocalAI:=cs.LocalAI.server.new()
+
+$LocalAI.start({\
+models_path: Folder(fk desktop folder).folder("models"); \
+backends_path: Folder(fk desktop folder).folder("backends"); \
+disable_web_ui: False; \
+address: "127.0.0.1:8080"; \
+threads: 4; \
+context_size: 2048})
 ```
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
