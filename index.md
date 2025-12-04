@@ -56,7 +56,7 @@ Case of
 End case 
 ```
 
-Unless the server is alraedy running (in which case the costructor does nothing), the following procedure runs in the background:
+Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
 
 1. The specified model is download via HTTP
 2. The `local-ai` program is started
