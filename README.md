@@ -6,6 +6,8 @@
 # LocalAI
 Local inference engine
 
+**aknowledgements**: [mudler/LocalAI](https://github.com/mudler/LocalAI)
+
 ## Install Protocol Buffers Compiler `protoc`
 
 * macOS
