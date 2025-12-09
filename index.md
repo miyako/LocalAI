@@ -109,8 +109,9 @@ context_size: 2048})
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
 
-1. The specified model is download via HTTP
-2. The `local-ai` program is started
+1. The specified model is downloaded via HTTP
+2. The specified backend is downloaded via HTTP
+3. The `local-ai` program is started
 
 Now you can test the server:
 
