@@ -11,100 +11,62 @@ layout: default
 
 #### Abstract
 
-[LocalAI](https://github.com/mudler/LocalAI) is a modular ecosystem designed to locally run multiple AI models and backends. It primarily targets Linux, Docker or Windows Subsystem for Linux, but native macOS and Windows distribution is also possible with limited choice of backends.
-
-- llama.cpp
-- stable-diffusion.cpp
-- whisper
-- piper
-- etc
+[LocalAI](https://github.com/mudler/LocalAI) is a modular ecosystem designed to locally run multiple AI models and backends. It primarily targets Linux, Docker or Windows Subsystem for Linux, but native macOS and Windows distribution is also possible with select backends.
 
 #### Usage
 
-Instantiate `cs.LocalAI.models` and call `.install()` to install a model.
+Instantiate `cs.LocalAI.LocalAI` in your *On Startup* database method:
 
 ```4d
-#DECLARE($params : Object)
+var $LocalAI : cs.LocalAI.LocalAI
 
-Case of 
-    : (Count parameters=0)
-        
-        CALL WORKER(1; Current method name; {})
-        
-    Else 
-        
-        var $LocalAI : cs.LocalAI.models
-        $LocalAI:=cs.LocalAI.models.new()
-        
-        /*
-            models_path: mandatory
-            model: name of model to install
-            data : string passed to callback in $2.content
-            pass a subclass of _LocalAI_Controller to cs.models.new() above
-            to process onData, onDataError, etc.
-        */
-        
-        var $models : Collection
-        $models:=[]
-        $models.push({\
-        model: "localai@nomic-embed-text-v1.5"; \
-        data: "installed nomic-embed-text-v1.5"; \
-        models_path: Folder(fk desktop folder).folder("models")})
-        
-        $LocalAI.install($models; Formula(onModelInstall))
-        
-End case 
-```
-
-Instantiate `cs.LocalAI.backends` and call `.install()` to install a backend.
-
-```4d
-#DECLARE($params : Object)
-
-Case of 
-    : (Count parameters=0)
-        
-        CALL WORKER(1; Current method name; {})
-        
-    Else 
-        
-        var $LocalAI : cs.LocalAI.backends
-        $LocalAI:=cs.LocalAI.backends.new()
-                
-        var $backends : Collection
-        $backends:=[]
-        
-        Case of 
-            : (Is macOS) && (Not(System info.macRosetta))
-                $backends.push({\
-                backend: "localai@metal-llama-cpp"; \
-                data: "installed metal-llama-cpp"; \
-                backends_path: Folder(fk desktop folder).folder("backends")})
-            Else 
-                $backends.push({\
-                backend: "localai@cpu-llama-cpp"; \
-                data: "installed cpu-llama-cpp"; \
-                backends_path: Folder(fk desktop folder).folder("backends")})
-        End case 
-        
-        $LocalAI.install($backends; Formula(onBackendInstall))
-        
-End case 
-```
-
-Instantiate `cs.LocalAI.server` and call `.start()` to start the server:
-
-```4d
-var $LocalAI : cs.LocalAI.server
-$LocalAI:=cs.LocalAI.server.new()
-
-$LocalAI.start({\
-models_path: Folder(fk desktop folder).folder("models"); \
-backends_path: Folder(fk desktop folder).folder("backends"); \
-disable_web_ui: False; \
-address: "127.0.0.1:8080"; \
-threads: 4; \
-context_size: 2048})
+If (False)
+    $LocalAI:=cs.LocalAI.LocalAI.new()  //default
+Else 
+    var $port : Integer
+    
+    var $event : cs.event.event
+    $event:=cs.event.event.new()
+    /*
+        Function onError($params : Object; $error : cs.event.error)
+        Function onSuccess($params : Object; $models : cs.event.models)
+        Function onData($worker : 4D.SystemWorker; $params : Object)
+        Function onTerminate($worker : 4D.SystemWorker; $params : Object)
+    */
+    
+    $event.onError:=Formula(ALERT($2.message))
+    $event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" loaded!"))
+    $event.onData:=Formula(MESSAGE([$2.fileName; $2.percentage; "%"].join(" ")))
+    $event.onTerminate:=Formula(LOG EVENT(Into 4D debug message; (["process"; $1.pid; "terminated!"].join(" "))))
+    
+    $port:=8080
+    $models:=["localai@nomic-embed-text-v1.5"; "localai@llama-3.2-1b-instruct:q4_k_m"]
+    
+    var $backends : Collection
+    $backends:=[]
+    
+    Case of 
+        : (Is macOS) && (System info.processor="@Apple@")
+            $backends.push("localai@metal-llama-cpp")
+            $backends.push("localai@mlx")
+            $backends.push("localai@diffusers")
+        Else 
+            $backends.push("localai@cpu-llama-cpp")
+            $backends.push("localai@stable-diffusion.cpp")
+    End case 
+    
+    var $HOME : 4D.Folder
+    $HOME:=Folder(fk home folder).folder(".LocalAI")
+    
+    $LocalAI:=cs.LocalAI.LocalAI.new($port; $backends; $models; $HOME; {\
+    models_path: $HOME.folder("models"); \
+    backends_path: $HOME.folder("backends"); \
+    disable_web_ui: False; \
+    host: "127.0.0.1"; \
+    threads: 4; \
+    context_size: 2048}; $event)
+    
+End if 
 ```
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
