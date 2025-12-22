@@ -15,7 +15,7 @@ Class constructor($executableName : Text; $controller : 4D:C1709.Class)
 		: (Is Windows:C1573)
 			This:C1470._platform:="Windows"
 			This:C1470._executableName:=$executableName+".exe"
-			This:C1470._EOL:="\r\n"
+			This:C1470._EOL:="\n"
 	End case 
 	
 	This:C1470._currentDirectory:=This:C1470.expand(Folder:C1567("/RESOURCES/bin").folder(This:C1470.platform))
