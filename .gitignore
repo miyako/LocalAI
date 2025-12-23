@@ -2,6 +2,6 @@ macOS/local-ai.dmg
 LocalAI/userPreferences.*
 lib/*
 LocalAI/Data/*
-LocalAI/Project/DerivedData/methodAttributes.json
-LocalAI/Project/DerivedData/formAttributes.json
-LocalAI/Resources/bin/macOS/local-ai-x86_64.dmg
+LocalAI/Project/*
+LocalAI/Libraries/lib4d-arm64.dylib
+LocalAI/Resources/en.lproj/syntaxEN.json

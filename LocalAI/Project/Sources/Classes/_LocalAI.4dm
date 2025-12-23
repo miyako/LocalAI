@@ -14,7 +14,7 @@ Class constructor($class : 4D:C1709.Class)
 	$controller:=cs:C1710._LocalAI_Controller
 	
 	While ($superclass#Null:C1517)
-		If ($superclass=$controller)
+		If ($superclass.name=$controller.name)
 			$controller:=$class
 			break
 		End if 
@@ -23,7 +23,7 @@ Class constructor($class : 4D:C1709.Class)
 	
 	var $program : Text
 	Case of 
-		: (Is macOS:C1572) && (System info:C1571.processor#"@Apple@")
+		: (Is macOS:C1572) && (Get system info:C1571.processor#"@Apple@")
 			$program:="local-ai-x86_64"
 		Else 
 			$program:="local-ai"
