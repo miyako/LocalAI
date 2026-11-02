@@ -1,0 +1,3 @@
+scripts/native/*.json text eol=lf
+LocalAI/Resources/native/** -text
+LocalAI/Resources/bin/** -text

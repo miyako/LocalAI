@@ -1,0 +1,5 @@
+{
+  "format": 1,
+  "status": "unconfigured",
+  "reason": "No server-* release exists yet. Publish a validated native release, then adopt its exact tag with scripts/native/release.py. Component Publish must fail until this reviewed lock is configured."
+}

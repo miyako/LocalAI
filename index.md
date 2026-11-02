@@ -16,9 +16,10 @@ server. Installing the CLI alone does not install an inference engine or model.
 
 ## What is built
 
-The server workflow resolves upstream's **latest stable GitHub release** once
-to an immutable commit SHA, then builds every target from that same source.
-An exact tag or full commit SHA can be supplied manually. The checked baseline
+The server workflow loads the checked-in **source-lock.json** (immutable commit
+and Go/npm dependency-lock hashes), then builds every target from that same source.
+It does not automatically track latest. An exact tag or full commit SHA can be
+supplied manually and resolved once for the matrix. The checked baseline
 on 2026-11-02 is **v4.12.1**,
 [`ec9274027eadd552d56f2c6c1fe86cd9216a991a`](https://github.com/mudler/LocalAI/tree/ec9274027eadd552d56f2c6c1fe86cd9216a991a).
 This is not the 4D component's version.
@@ -29,9 +30,10 @@ This is not the 4D component's version.
 | `linux-amd64` | Ubuntu 24.04 / x86-64 | Static, CGO-disabled server CLI + web UI |
 | `linux-arm64` | Ubuntu 24.04 / ARM64 | Same, built and exercised natively |
 
-These are configured CI targets, not claims that all inference backends work
-on every platform. macOS arm64 is exercised locally; Linux/native runner results
-remain subject to CI. Intel macOS and native Windows are excluded, matching
+All three targets passed existing CI run
+[41398850291](https://github.com/miyako/LocalAI/actions/runs/41398850291);
+that run predates the new license/release-lock gates. These are not claims
+that all inference backends work on every platform. Intel macOS and native Windows are excluded, matching
 upstream's current server release scope. A Linux package may be used **inside
 WSL2**, not as a native Windows executable or a drop-in Windows 4D worker.
 
@@ -103,18 +105,40 @@ model list or a successful health probe does not establish inference support.
 
 ## Use from 4D
 
-The existing component publishing workflow remains separate from server builds.
-The new server workflow **does not automatically bundle or update the 4D
-component's executable resources**. Follow the
+Component **Publish reuses a pinned native release without rebuilding the server**.
+The native workflow's separately authorized `publish=true` option creates a
+validated complete three-target `server-*` release, never replacing the latest
+component release. Adopt its exact tag with `scripts/native/release.py adopt`;
+review and commit only the generated small release lock. Component Publish
+downloads that exact release and validates source/builder identity, asset
+IDs/sizes/checksums, runtime dependencies, licenses and native smoke evidence.
+
+**Why use release assets rather than Git binaries?** The actual v4.12.1 macOS executable is
+**190,504,960 bytes (181.68 MiB)**, exceeding GitHub's 100 MiB file limit.
+The approved solution stages its validated executable/license/provenance tree
+transiently into Resources **after clean-tree component versioning**; it never
+commits the oversized binary or introduces LFS. Legacy Windows/Intel resources
+are preserved unchanged; Linux remains standalone.
+
+**Bootstrap required:** no `server-*` release exists as of 2026-11-02. Publish
+fails before versioning until a license-complete native release is published
+and its exact release lock is adopted. There is no latest or legacy fallback.
+After lock adoption, separately dispatch **Publish** on main. The native
+workflow does not dispatch component publication. A `GITHUB_TOKEN` push would not
+trigger push workflows; no such resource commit is used here. Human pushes to
+component sources/resources retain ordinary Publish behavior using the pinned
+release. Both workflows share concurrency and reject stale main snapshots.
+Default native builds/PRs are read-only.
+Follow the
 [class installation and platform instructions](https://github.com/miyako/LocalAI/blob/main/LocalAI/Documentation/Classes/_LocalAI.md)
 before using its launcher. The detailed class guide includes constructor
 parameters, model/backend installation callbacks and termination.
 
 Existing Windows/Intel launcher paths and executable resources are retained as
 legacy best-effort behavior, not current source-built server support. For the
-new server via the macOS arm64 launcher, manually replace
-`LocalAI/Resources/bin/macOS/local-ai` with the checked archive's `bin/local-ai`
-before packaging. Bundled resources take precedence over `PATH`; modern-only
+new server via the macOS arm64 launcher, a validated replacement is required;
+do not try to commit the current oversized archive's executable.
+Bundled resources take precedence over `PATH`; modern-only
 flags must not be passed to unchanged legacy binaries. Empty backend/model
 collections select downloadable defaults, not offline mode.
 
@@ -140,3 +164,10 @@ generates protobufs with upstream-pinned tools, and compiles `./cmd/local-ai`
 without obsolete `llamacpp,tflite` build tags. Before artifacts are uploaded,
 the **extracted package** is checked for expected version/SHA, runtime
 dependencies, CLI help, HTTP liveness/readiness, empty model listing and web UI.
+New packages also require dependency license/notice closure and per-file hashes.
+Native builds previously took 4-7 minutes per target plus runner queue time;
+the new licensing steps have not yet been timed on hosted runners. Component-only
+Publish avoids that native work. Resource inventories cover pre-component-signing
+bytes, not the final signed component. See the
+[maintainer run order and size evidence](https://github.com/miyako/LocalAI#maintainer-run-order-and-git-writes)
+for the exact Git-write/publication gates and validation limitations.

@@ -21,7 +21,7 @@ cd "$source_dir"
 test "$(git rev-parse HEAD)" = "$sha"
 test -z "$(git status --porcelain --untracked-files=no)"
 export CGO_ENABLED=0
-export GOTOOLCHAIN=auto
+export GOTOOLCHAIN=local
 export GOFLAGS=-mod=readonly
 unset GOOS GOARCH GOAMD64 GOARM64
 
@@ -35,9 +35,11 @@ make protogen-go generate
 go build -trimpath -buildvcs=false \
   -ldflags "-s -w -X github.com/mudler/LocalAI/internal.Version=$version -X github.com/mudler/LocalAI/internal.Commit=$sha" \
   -o local-ai ./cmd/local-ai
+python3 "$scripts/licenses.py" "$source_dir" "$output/.native-licenses"
 
 if [[ "$(uname -s)" == Darwin ]]; then
   codesign --force --sign - local-ai
   codesign --verify --strict local-ai
 fi
-python3 "$scripts/native.py" package "$source_dir" "$metadata" "$output"
+python3 "$scripts/native.py" package "$source_dir" "$metadata" "$output" \
+  --licenses "$output/.native-licenses"
