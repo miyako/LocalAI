@@ -6,11 +6,17 @@
 
 **.new**($executableName : Text) : cs._CLI
 
-Pass the name of the CLI agent. It should be placed in the following location:
+Pass the name of the CLI agent and, optionally, a controller class. The generic
+resolver checks the following historical resource layout:
 
 ```
 /RESOURCES/bin/{macOS|Windows}/
 ```
+
+For the LocalAI v4.12.1 server, see [native installation and platform limits](_LocalAI.md).
+The generic Windows `.exe` resolution is not evidence of native LocalAI Windows support.
+If the resource executable is absent, resolution falls back to the executable name
+on the 4D process's `PATH` (which can differ from an interactive terminal's `PATH`).
 
 The constructor defines the following properties:
 
@@ -31,7 +37,12 @@ The class is intended to be subclassed. `.name` returns the value `OB Class(This
 
 **.escape()**($in : Text) : Text
 
-Add double quotes on each sides of a string that contains metacharacters on Windows, except when the last character is a backslash in which case the backslash is escaped with a backslash before the whole string is quoted. Escape metacharacters on Mac. Not all CLI agent respect this type of escaping.
+On macOS, return one POSIX single-quoted argument, escaping embedded single quotes.
+This preserves empty arguments, spaces, tabs, newlines and shell metacharacters.
+On Windows, the legacy helper adds double quotes to strings containing
+metacharacters and escapes a trailing backslash; it is not a general Windows
+argument encoder. Its historical behavior is retained for best-effort execution
+of legacy Windows resources; this does not add native Windows v4.12.1 support.
 
 ## .quote()
 

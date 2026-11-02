@@ -123,12 +123,7 @@ argument escape for cmd.exe; other programs may be incompatible
 argument escape for bash or zsh; other programs may be incompatible
 */
 			
-			$metacharacters:="\\!\"#$%&'()=~|<>?;*`[] "
-			
-			For ($i; 1; Length:C16($metacharacters))
-				$metacharacter:=Substring:C12($metacharacters; $i; 1)
-				$out:=Replace string:C233($out; $metacharacter; "\\"+$metacharacter; *)
-			End for 
+			$out:="'"+Replace string:C233($in; "'"; "'\\''"; *)+"'"
 			
 	End case 
 	

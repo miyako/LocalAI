@@ -15,7 +15,7 @@ Function onTerminate($worker : 4D.SystemWorker; $params : Object)
 */
 	
 	$event.onError:=Formula:C1597(ALERT:C41($2.message))
-	$event.onSuccess:=Formula:C1597(ALERT:C41($2.models.extract("name").join(",")+" loaded!"))
+	$event.onSuccess:=Formula:C1597(ALERT:C41($2.models.extract("name").join(",")+" installed!"))
 	$event.onData:=Formula:C1597(MESSAGE:C88([$2.fileName; $2.percentage; "%"].join(" ")))
 	$event.onTerminate:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; (["process"; $1.pid; "terminated!"].join(" "))))
 	
@@ -24,16 +24,6 @@ Function onTerminate($worker : 4D.SystemWorker; $params : Object)
 	
 	var $backends : Collection
 	$backends:=[]
-	
-	Case of 
-		: (Is macOS:C1572) && (System info:C1571.processor="@Apple@")
-			$backends.push("localai@metal-llama-cpp")
-			$backends.push("localai@mlx")
-			$backends.push("localai@diffusers")
-		Else 
-			$backends.push("localai@cpu-llama-cpp")
-			$backends.push("localai@stable-diffusion.cpp")
-	End case 
 	
 	var $HOME : 4D:C1709.Folder
 	$HOME:=Folder:C1567(fk home folder:K87:24).folder(".LocalAI")

@@ -2,118 +2,141 @@
 layout: default
 ---
 
-![version](https://img.shields.io/badge/version-20%2B-E23089)
-![platform](https://img.shields.io/static/v1?label=platform&message=mac-intel%20|%20mac-arm%20|%20win-64&color=blue)
-[![license](https://img.shields.io/github/license/miyako/LocalAI)](LICENSE)
-![downloads](https://img.shields.io/github/downloads/miyako/LocalAI/total)
+# LocalAI: native server and 4D integration
 
-# Use LocalAI from 4D
+[LocalAI](https://github.com/mudler/LocalAI) exposes local models through
+OpenAI-compatible APIs. This repository provides **source-built native server
+CLI archives** and a **separate 4D 20+ component** that manages an installed
+server. Installing the CLI alone does not install an inference engine or model.
 
-#### Abstract
+[Get server build artifacts](https://github.com/miyako/LocalAI/actions/workflows/build-server.yml)
+| [Browse releases](https://github.com/miyako/LocalAI/releases)
+| [Full build and installation guide](https://github.com/miyako/LocalAI#native-server-cli)
+| [4D class documentation](https://github.com/miyako/LocalAI/blob/main/LocalAI/Documentation/Classes/_LocalAI.md)
 
-[LocalAI](https://github.com/mudler/LocalAI) is a modular ecosystem designed to locally run multiple AI models and backends. It primarily targets Linux, Docker or Windows Subsystem for Linux, but native macOS and Windows distribution is also possible with select backends.
+## What is built
 
-#### Usage
+The server workflow resolves upstream's **latest stable GitHub release** once
+to an immutable commit SHA, then builds every target from that same source.
+An exact tag or full commit SHA can be supplied manually. The checked baseline
+on 2026-11-02 is **v4.12.1**,
+[`ec9274027eadd552d56f2c6c1fe86cd9216a991a`](https://github.com/mudler/LocalAI/tree/ec9274027eadd552d56f2c6c1fe86cd9216a991a).
+This is not the 4D component's version.
 
-Instantiate `cs.LocalAI.LocalAI` in your *On Startup* database method:
+| Archive target | Native build runner | Scope |
+|---|---|---|
+| `darwin-arm64` | macOS 15 / Apple Silicon | Server CLI + embedded web UI; ad-hoc signed, not notarized |
+| `linux-amd64` | Ubuntu 24.04 / x86-64 | Static, CGO-disabled server CLI + web UI |
+| `linux-arm64` | Ubuntu 24.04 / ARM64 | Same, built and exercised natively |
 
-```4d
-var $LocalAI : cs.LocalAI.LocalAI
+These are configured CI targets, not claims that all inference backends work
+on every platform. macOS arm64 is exercised locally; Linux/native runner results
+remain subject to CI. Intel macOS and native Windows are excluded, matching
+upstream's current server release scope. A Linux package may be used **inside
+WSL2**, not as a native Windows executable or a drop-in Windows 4D worker.
 
-If (False)
-    $LocalAI:=cs.LocalAI.LocalAI.new()  //default
-Else 
-    var $port : Integer
-    
-    var $event : cs.event.event
-    $event:=cs.event.event.new()
-    /*
-        Function onError($params : Object; $error : cs.event.error)
-        Function onSuccess($params : Object; $models : cs.event.models)
-        Function onData($worker : 4D.SystemWorker; $params : Object)
-        Function onTerminate($worker : 4D.SystemWorker; $params : Object)
-    */
-    
-    $event.onError:=Formula(ALERT($2.message))
-    $event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" loaded!"))
-    $event.onData:=Formula(MESSAGE([$2.fileName; $2.percentage; "%"].join(" ")))
-    $event.onTerminate:=Formula(LOG EVENT(Into 4D debug message; (["process"; $1.pid; "terminated!"].join(" "))))
-    
-    $port:=8080
-    $models:=["localai@nomic-embed-text-v1.5"; "localai@llama-3.2-1b-instruct:q4_k_m"]
-    
-    var $backends : Collection
-    $backends:=[]
-    
-    Case of 
-        : (Is macOS) && (System info.processor="@Apple@")
-            $backends.push("localai@metal-llama-cpp")
-            $backends.push("localai@mlx")
-            $backends.push("localai@diffusers")
-        Else 
-            $backends.push("localai@cpu-llama-cpp")
-            $backends.push("localai@stable-diffusion.cpp")
-    End case 
-    
-    var $HOME : 4D.Folder
-    $HOME:=Folder(fk home folder).folder(".LocalAI")
-    
-    $LocalAI:=cs.LocalAI.LocalAI.new($port; $backends; $models; $HOME; {\
-    models_path: $HOME.folder("models"); \
-    backends_path: $HOME.folder("backends"); \
-    disable_web_ui: False; \
-    host: "127.0.0.1"; \
-    threads: 4; \
-    context_size: 2048}; $event)
-    
-End if 
+## Download and start
+
+Use the **Build native LocalAI server** Actions workflow for CI artifacts,
+or select a published release whose tag begins with **`server-`**. Server release
+publishing is an explicit manual option and does not replace the latest 4D
+component release. Adding the workflow does not itself publish any binaries.
+
+An example archive name is:
+
+```text
+local-ai-v4.12.1-ec9274027ead-darwin-arm64-server-cli-only.tar.gz
 ```
 
-Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
+Select the version, SHA and target actually listed in the chosen release.
+Verify the archive against `SHA256SUMS` (or its CI `.sha256` companion) before
+extraction. The archive has `bin/local-ai`, upstream license, dependency audit,
+source lock files and version/build provenance. It has **no inference backends,
+model weights, Python environments or GPU drivers**.
 
-1. The specified model is downloaded via HTTP
-2. The specified backend is downloaded via HTTP
-3. The `local-ai` program is started
+After following the [download/checksum instructions](https://github.com/miyako/LocalAI#build-download-and-install),
+extract to `localai-server`, then:
 
-Now you can test the server:
-
+```sh
+mkdir -p "$HOME/.localai-native"/{models,backends}
+SERVER="$PWD/localai-server/bin/local-ai"
+cd "$HOME/.localai-native"
+"$SERVER" run --address 127.0.0.1:8080 \
+  --models-path "$PWD/models" --backends-path "$PWD/backends"
 ```
-curl -X POST http://127.0.0.1:8080/v1/embeddings \
-     -H "Content-Type: application/json" \
-     -d '{"input":"The quick brown fox jumps over the lazy dog."}'
+
+In another terminal:
+
+```sh
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/readyz
+curl --fail http://127.0.0.1:8080/v1/models
 ```
 
-Or, use AI Kit:
+The web UI is at `http://127.0.0.1:8080/`. Keep the server on loopback unless
+authentication and access controls have been configured. macOS downloads are
+not Developer ID signed/notarized; use your organization's approval policy or
+build from source if Gatekeeper blocks execution.
+
+## Enable inference
+
+Use `local-ai backends list` and `local-ai models list` to inspect the current
+galleries; consult each `install --help` subcommand and
+[upstream backend documentation](https://localai.io/backends/) before installing.
+Set the same `LOCALAI_MODELS_PATH` and `LOCALAI_BACKENDS_PATH` for installation
+and server runs. Gallery installation requires network access. Backend/platform
+compatibility, Python/uv environments, shared libraries, CPU features and GPU
+drivers are **independent of the server binary**. Backend/model licensing and
+version pinning also need separate review.
+
+Once an embedding model is installed and loaded, use its actual model ID from
+`/v1/models`:
+
+```sh
+curl --fail http://127.0.0.1:8080/v1/embeddings \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"YOUR_INSTALLED_EMBEDDING_MODEL_ID","input":"The quick brown fox jumps over the lazy dog."}'
+```
+
+Endpoint availability depends on the loaded model and its backend. An empty
+model list or a successful health probe does not establish inference support.
+
+## Use from 4D
+
+The existing component publishing workflow remains separate from server builds.
+The new server workflow **does not automatically bundle or update the 4D
+component's executable resources**. Follow the
+[class installation and platform instructions](https://github.com/miyako/LocalAI/blob/main/LocalAI/Documentation/Classes/_LocalAI.md)
+before using its launcher. The detailed class guide includes constructor
+parameters, model/backend installation callbacks and termination.
+
+Existing Windows/Intel launcher paths and executable resources are retained as
+legacy best-effort behavior, not current source-built server support. For the
+new server via the macOS arm64 launcher, manually replace
+`LocalAI/Resources/bin/macOS/local-ai` with the checked archive's `bin/local-ai`
+before packaging. Bundled resources take precedence over `PATH`; modern-only
+flags must not be passed to unchanged legacy binaries. Empty backend/model
+collections select downloadable defaults, not offline mode.
+
+For AI Kit, point an OpenAI client at an already running, configured server:
 
 ```4d
 var $AIClient : cs.AIKit.OpenAI
 $AIClient:=cs.AIKit.OpenAI.new()
 $AIClient.baseURL:="http://127.0.0.1:8080/v1"
-
-var $text : Text
-$text:="The quick brown fox jumps over the lazy dog."
-
-var $responseEmbeddings : cs.AIKit.OpenAIEmbeddingsResult
-$responseEmbeddings:=$AIClient.embeddings.create($text)
 ```
 
-Finally to terminate the server:
+Choose the installed model explicitly in your AI Kit request; the server does
+not choose an embedding model merely because the request contains text.
+Use Linux/WSL as a separately managed HTTP server rather than placing its binary
+in Windows component resources.
 
-```4d
-var $LocalAI : cs.LocalAI.server
-$LocalAI:=cs.LocalAI.server.new()
-$LocalAI.terminate()
-```
+## Maintainer build and verification
 
-#### AI Kit compatibility
-
-The API is compatible with [Open AI](https://platform.openai.com/docs/api-reference/embeddings). 
-
-|Class|API|Availability|
-|-|-|:-:|
-|Models|`/v1/models`|✅|
-|Chat|`/v1/chat/completions`|✅|
-|Images|`/v1/images/generations`|✅|
-|Moderations|`/v1/moderations`|✅|
-|Embeddings|`/v1/embeddings`|✅|
-|Files|`/v1/files`|✅|
+The [GitHub guide](https://github.com/miyako/LocalAI#build-locally-from-the-same-source)
+documents local source builds, pinned source overrides and tool prerequisites.
+The workflow builds the embedded React UI using the upstream npm lockfile,
+generates protobufs with upstream-pinned tools, and compiles `./cmd/local-ai`
+without obsolete `llamacpp,tflite` build tags. Before artifacts are uploaded,
+the **extracted package** is checked for expected version/SHA, runtime
+dependencies, CLI help, HTTP liveness/readiness, empty model listing and web UI.

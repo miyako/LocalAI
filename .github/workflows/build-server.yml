@@ -1,0 +1,145 @@
+name: Build native LocalAI server
+
+on:
+  pull_request:
+    paths: ['scripts/native/**', '.github/workflows/build-server.yml']
+  push:
+    branches: [main]
+    paths: ['scripts/native/**', '.github/workflows/build-server.yml']
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: 'Exact upstream vX.Y.Z tag or full commit SHA; blank = latest stable release'
+        type: string
+        default: ''
+      publish:
+        description: 'Publish a separate server release (never replaces the latest 4D component release)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-server-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test build helpers
+        run: python3 -m unittest discover -s scripts/native -p 'test_*.py' -v
+      - name: Resolve upstream once for the whole matrix
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+        run: python3 scripts/native/native.py resolve --ref "$UPSTREAM_REF" --output source.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream-source
+          path: source.json
+          if-no-files-found: error
+
+  build:
+    needs: source
+    name: Server only / ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+            host: Darwin arm64
+          - runner: ubuntu-24.04
+            target: linux-amd64
+            host: Linux x86_64
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64
+            host: Linux aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: mudler/LocalAI
+          ref: ${{ needs.source.outputs.sha }}
+          path: upstream
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: upstream-source
+      - name: Verify native runner
+        env:
+          EXPECTED_HOST: ${{ matrix.host }}
+        run: test "$(uname -s) $(uname -m)" = "$EXPECTED_HOST"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: upstream/go.mod
+          cache-dependency-path: upstream/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: upstream/core/http/react-ui/package-lock.json
+      - name: Build server and embedded UI from source; audit runtime and package
+        run: bash scripts/native/build.sh upstream source.json dist
+      - name: Smoke test extracted distribution, not the build tree
+        env:
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+          SOURCE_VERSION: ${{ needs.source.outputs.version }}
+        run: |
+          mkdir extracted
+          tar -xzf dist/*.tar.gz -C extracted
+          python3 scripts/native/native.py smoke extracted/bin/local-ai "$SOURCE_SHA" "$SOURCE_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-ai-${{ matrix.target }}-server-cli-only
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    needs: [source, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: local-ai-*-server-cli-only
+          merge-multiple: true
+          path: dist
+      - name: Verify archives and publish an immutable, separately named server release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+          SOURCE_VERSION: ${{ needs.source.outputs.version }}
+          BUILDER_SHA: ${{ github.sha }}
+        run: |
+          cd dist
+          cat ./*.sha256 > SHA256SUMS
+          test "$(wc -l < SHA256SUMS)" -eq 3
+          sha256sum --check SHA256SUMS
+          tag="server-${SOURCE_VERSION}-${SOURCE_SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" ./*.tar.gz SHA256SUMS \
+            --target "$BUILDER_SHA" --latest=false \
+            --title "LocalAI ${SOURCE_VERSION} native server CLI only" \
+            --notes "Built from mudler/LocalAI@${SOURCE_SHA} by ${BUILDER_SHA}. Server CLI and embedded web UI only: inference backends, model weights, Python and GPU runtimes are NOT bundled. macOS arm64 is ad-hoc signed, not notarized. See https://github.com/${GH_REPO}#native-server-cli for installation and limitations. The existing 4D component release is separate."

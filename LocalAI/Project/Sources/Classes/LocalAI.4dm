@@ -4,6 +4,10 @@ Class constructor($port : Integer; $backends : Collection; $models : Collection;
 	
 	This:C1470.options:=$options#Null:C1517 ? $options : {}
 	
+	If ($port<=0) || ($port>65535)
+		$port:=8080
+	End if
+
 	If (Value type:C1509(This:C1470.options.host)#Is text:K8:3) || (This:C1470.options.host="")
 		This:C1470.options.host:="127.0.0.1"
 	End if 
@@ -26,20 +30,30 @@ Class constructor($port : Integer; $backends : Collection; $models : Collection;
 			$models:=["localai@nomic-embed-text-v1.5"; "localai@llama-3.2-1b-instruct:q4_k_m"]
 		End if 
 		
-		If (Not:C34(OB Instance of:C1731($HOME; 4D:C1709.Folder))) || (Not:C34($HOME.exists))
+		If (Not:C34(OB Instance of:C1731($HOME; 4D:C1709.Folder)))
 			$HOME:=Folder:C1567(fk home folder:K87:24).folder(".LocalAI")
 		End if 
+		$HOME.create()
 		
-		If ($port=0) || ($port<0) || ($port>65535)
-			$port:=8080
+		If (Not:C34(OB Instance of:C1731(This:C1470.options.models_path; 4D:C1709.Folder)))
+			This:C1470.options.models_path:=$HOME.folder("models")
 		End if 
+		If (Not:C34(OB Instance of:C1731(This:C1470.options.backends_path; 4D:C1709.Folder)))
+			This:C1470.options.backends_path:=$HOME.folder("backends")
+		End if
+		This:C1470.options.models_path.create()
+		This:C1470.options.backends_path.create()
 		
 		This:C1470.options.backends:=$backends
 		This:C1470.options.models:=$models
 		This:C1470.options.port:=$port
 		This:C1470.options.HOME:=$HOME
 		
-		This:C1470._main($port; $backends; $models; $HOME; $options; $event)
+		If (OB Instance of:C1731($event; cs:C1710.event.event))
+			This:C1470.options.onTerminate:=$event.onTerminate
+			This:C1470.options.onError:=$event.onError
+		End if
+		This:C1470._main($port; $backends; $models; $HOME; This:C1470.options; $event)
 		
 	End if 
 	
@@ -55,13 +69,15 @@ Function _onTCP($status : Object; $options : Object)
 	Else 
 		
 		var $statuses : Text
-		$statuses:="TCP port "+String:C10($status.port)+" is aready used by process "+$status.PID.join(",")
+		$statuses:="TCP port "+String:C10($status.port)+" is already used by process "+$status.PID.join(",")
 		var $error : cs:C1710.event.error
 		$error:=cs:C1710.event.error.new(1; $statuses)
 		
-		If ($options.event#Null:C1517) && (OB Instance of:C1731($options.event; cs:C1710.event.event))
+		If (OB Instance of:C1731($options.event; cs:C1710.event.event)) && (OB Instance of:C1731($options.event.onError; 4D:C1709.Function))
 			$options.event.onError.call(This:C1470; $options; $error)
-		End if 
+		Else
+			LOG EVENT:C667(Into 4D debug message:K38:5; $statuses)
+		End if
 		
 	End if 
 	

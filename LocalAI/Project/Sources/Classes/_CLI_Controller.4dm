@@ -56,6 +56,8 @@ Function execute($command : Variant; $message : Variant; $context : Variant) : c
 	var $commands : Collection
 	var $messages : Collection
 	var $contexts : Collection
+	$messages:=[]
+	$contexts:=[]
 	
 	Case of 
 		: (Value type:C1509($command)=Is text:K8:3)
@@ -64,6 +66,9 @@ Function execute($command : Variant; $message : Variant; $context : Variant) : c
 			$contexts:=[$context]
 		: (Value type:C1509($command)=Is collection:K8:32)
 			$commands:=$command
+			If ($commands.length=0)
+				return This:C1470
+			End if
 			If (Value type:C1509($message)=Is collection:K8:32) && ($message.length=$commands.length)
 				$messages:=$message
 			Else 
@@ -184,6 +189,8 @@ Function _abort()
 	
 	This:C1470._complete:=True:C214
 	This:C1470._commands.clear()
+	This:C1470._messages.clear()
+	This:C1470._contexts.clear()
 	
 Function _terminate()
 	
