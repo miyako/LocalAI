@@ -5,7 +5,7 @@ kramdown:
   syntax_highlighter: rouge
 highlighter: rouge
 plugins_dir: _plugins
-baseurl: /llama-cpp
+baseurl: /LocalAI
 
 title: "LocalAI"
 description: "Use LocalAI from 4D"
@@ -23,3 +23,8 @@ exclude:
   - "LICENSE"
   - "README.md"
   - "Gemfile"
+  - "scripts"
+  - "upstream"
+  - "source.json"
+  - "dist"
+  - "extracted"

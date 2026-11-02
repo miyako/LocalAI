@@ -1,5 +1,6 @@
 property stdOut : Text
 property stdErr : Text
+property progressBuffer : Text
 
 Class extends _Normal_Controller
 
@@ -8,10 +9,14 @@ Class constructor($CLI : cs:C1710._CLI)
 	Super:C1705($CLI)
 	
 	This:C1470.clear()
+	This:C1470.progressBuffer:=""
 	
 Function onData($worker : 4D:C1709.SystemWorker; $params : Object)
 	
 	Super:C1706.onData($worker; $params)
+	This:C1470._progress($worker; $params.data)
+
+Function _progress($worker : 4D:C1709.SystemWorker; $data : Text)
 	
 	var $instance : cs:C1710._server
 	$instance:=This:C1470.instance
@@ -19,7 +24,8 @@ Function onData($worker : 4D:C1709.SystemWorker; $params : Object)
 	If ($instance.onData#Null:C1517) && (OB Instance of:C1731($instance.onData; 4D:C1709.Function))
 		
 		var $stdOut : Text
-		$stdOut:=This:C1470.stdOut
+		This:C1470.progressBuffer+=$data
+		$stdOut:=This:C1470.progressBuffer
 		
 		ARRAY LONGINT:C221($pos; 0)
 		ARRAY LONGINT:C221($len; 0)
@@ -37,9 +43,10 @@ Function onData($worker : 4D:C1709.SystemWorker; $params : Object)
 				$instance.onData.call(This:C1470; $worker; $context)
 			End if 
 		End while 
-		This:C1470.stdOut:=Substring:C12($stdOut; $i)
+		This:C1470.progressBuffer:=Substring:C12($stdOut; $i)
 	End if 
 	
 Function onDataError($worker : 4D:C1709.SystemWorker; $params : Object)
 	
 	Super:C1706.onDataError($worker; $params)
+	This:C1470._progress($worker; $params.data)

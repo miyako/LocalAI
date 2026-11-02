@@ -3,6 +3,7 @@ property onData : 4D:C1709.Function
 property onDataError : 4D:C1709.Function
 property onTerminate : 4D:C1709.Function
 property onSuccess : 4D:C1709.Function
+property onError : 4D:C1709.Function
 
 Class extends _CLI
 
@@ -10,7 +11,9 @@ Class constructor($class : 4D:C1709.Class)
 	
 	var $controller : 4D:C1709.Class
 	var $superclass : 4D:C1709.Class
-	$superclass:=$class.superclass
+	If ($class#Null:C1517)
+		$superclass:=$class.superclass
+	End if
 	$controller:=cs:C1710._LocalAI_Controller
 	
 	While ($superclass#Null:C1517)
@@ -22,18 +25,21 @@ Class constructor($class : 4D:C1709.Class)
 	End while 
 	
 	var $program : Text
-	Case of 
+	Case of
 		: (Is macOS:C1572) && (Get system info:C1571.processor#"@Apple@")
 			$program:="local-ai-x86_64"
-		Else 
+		Else
 			$program:="local-ai"
-	End case 
-	
+	End case
+
 	Super:C1705($program; $controller)
 	
 Function bind($option : Object; $properties : Collection) : cs:C1710._CLI
 	
 	var $property : Text
+	If ($option=Null:C1517)
+		return This:C1470
+	End if
 	For each ($property; $properties)
 		This:C1470[$property]:=$option[$property]
 	End for each 

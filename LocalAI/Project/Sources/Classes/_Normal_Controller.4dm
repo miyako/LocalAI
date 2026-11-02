@@ -29,4 +29,5 @@ Function onResponse($worker : 4D:C1709.SystemWorker; $params : Object)
 Function onError($worker : 4D:C1709.SystemWorker; $params : Object)
 	
 Function onTerminate($worker : 4D:C1709.SystemWorker; $params : Object)
-	
+
+	Super:C1706.onTerminate($worker; $params)

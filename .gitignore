@@ -5,3 +5,8 @@ LocalAI/Data/*
 LocalAI/Project/*
 LocalAI/Libraries/lib4d-arm64.dylib
 LocalAI/Resources/en.lproj/syntaxEN.json
+/upstream/
+/source.json
+/dist/
+/extracted/
+__pycache__/
