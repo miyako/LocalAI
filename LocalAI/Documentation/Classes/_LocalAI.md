@@ -18,8 +18,20 @@ Backend installation remains a separate, platform-dependent operation.
 For the pinned v4.12.1 source, an example archive name is
 `local-ai-v4.12.1-ec9274027ead-darwin-arm64-server-cli-only.tar.gz`.
 Select the actual version, source SHA and target in the chosen release.
-The separate server workflow does not inject executable resources into the 4D
-component, and its releases do not replace the latest 4D component release.
+The separate server workflow offers explicitly authorized, all-target-validated
+`server-*` releases, never replacing the latest 4D component release.
+Component Publish downloads the exact release adopted in
+`scripts/native/component-lock.json`, then transiently overlays the macOS arm64
+executable and owned license/provenance tree **after** clean-tree versioning.
+It does not rebuild the server or commit those bytes. Linux stays standalone;
+Windows/Intel resources and resolver contracts are preserved.
+
+The verified v4.12.1 macOS executable is 190,504,960 bytes, over GitHub's
+100 MiB limit: release reuse is intentional, not LFS or an oversized Git commit.
+No `server-*` release exists as of 2026-11-02. Publish fails before versioning
+until native publication and reviewed exact-lock adoption are complete; no
+latest/legacy fallback is allowed. Native publication never dispatches component
+Publish, and bot `GITHUB_TOKEN` pushes do not trigger another push workflow.
 
 The checked-in resource executables are legacy binaries, not newly built or
 verified v4.12.1 artifacts. Replace the executable before using this integration
@@ -34,14 +46,16 @@ Their filenames and Go compiler metadata do not establish an upstream version.
 
 1. Obtain the matching source-built server archive and verify its provenance/checksum
    according to the release instructions. Retain its license material.
-2. Extract it outside the component, then copy `bin/local-ai` to
+2. For a manual installation outside the pinned Publish workflow, extract
+   it outside the component, then copy `bin/local-ai` to
    `LocalAI/Resources/bin/macOS/local-ai` before packaging the component. This is
    an explicit deployment step: the 4D resolver does not unpack archives.
+   Do not commit the current oversized replacement to Git.
 3. Before deployment, inspect the extracted `bin/local-ai` with `file`: it must
    be a Mach-O arm64 executable, not an Intel Mach-O, ELF Linux binary or Windows
    executable. Verify the archive's provenance identifies the intended source
-   version and commit. Run that exact executable with `--version`: require
-   nonempty version/commit output matching the source-built archive, not merely
+   version and commit. Run that exact executable with `--version` and `--help`: require
+   nonempty version/commit output across those commands matching the source-built archive, not merely
    exit code zero (the legacy arm64 resource returns a blank version). For the
    pinned example, expect v4.12.1 and commit
    `ec9274027eadd552d56f2c6c1fe86cd9216a991a`, or its displayed short prefix.

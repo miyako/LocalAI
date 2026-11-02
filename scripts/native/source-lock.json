@@ -1,0 +1,12 @@
+{
+  "repository": "mudler/LocalAI",
+  "ref": "v4.12.1",
+  "sha": "ec9274027eadd552d56f2c6c1fe86cd9216a991a",
+  "version": "v4.12.1",
+  "commit_date": "2026-10-23T10:03:52Z",
+  "locks": {
+    "go.mod": "704454c2988d1c159e476bf763075113d7877d484022e256947a94b89603264a",
+    "go.sum": "9e9f6f6b985817b642715b6e33a999e9f6a0284d61813eca422754022f618e70",
+    "core/http/react-ui/package-lock.json": "894c16795cbf487770a45bb0e46c8ed31e58b194312fed20399758d0635a1ee3"
+  }
+}

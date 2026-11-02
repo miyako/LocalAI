@@ -1,0 +1,327 @@
+import copy
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+
+spec = importlib.util.spec_from_file_location("licenses", Path(__file__).with_name("licenses.py"))
+licenses = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(licenses)
+
+
+class LicenseTests(unittest.TestCase):
+    def setUp(self):
+        # All scratch data stays inside this worktree, including on macOS.
+        self.temp = tempfile.TemporaryDirectory(prefix=".license-test-", dir=Path.cwd())
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / "source"
+        self.ui = self.source / licenses.UI
+        self.ui.mkdir(parents=True)
+        self.output = self.root / "licenses"
+        self.calls = []
+        self.original = b"immutable upstream license\r\ncopyright\xff\n"
+        (self.source / "LICENSE").write_bytes(b"working tree CRLF conversion\r\n")
+        self.root_metadata = {
+            "name": "ui", "version": "1.0.0",
+            "dependencies": {"alpha": "1.0.0"},
+            "optionalDependencies": {"absent": "1.0.0", "optional": "1.0.0"},
+            "devDependencies": {"dev": "1.0.0"},
+        }
+        self.packages = {"": copy.deepcopy(self.root_metadata)}
+        self.add_package("node_modules/alpha", dependencies={"@scope/beta": "2.0.0"})
+        self.add_package("node_modules/@scope/beta", name="@scope/beta", version="2.0.0",
+                         license="(MIT OR Apache-2.0)")
+        self.add_package("node_modules/optional", optional=True)
+        self.add_package("node_modules/absent", optional=True, installed=False)
+        self.add_package("node_modules/dev", dev=True, installed=False)
+        self.save_lock()
+
+    def add_package(self, key, *, name=None, version="1.0.0", license="MIT",
+                    optional=False, dev=False, installed=True, **extra):
+        name = name or key.rsplit("node_modules/", 1)[1]
+        metadata = {"name": name, "version": version, "license": license, **extra}
+        self.packages[key] = copy.deepcopy(metadata)
+        if optional:
+            self.packages[key]["optional"] = True
+        if dev:
+            self.packages[key]["dev"] = True
+        if installed:
+            path = self.ui / key
+            path.mkdir(parents=True)
+            (path / "package.json").write_text(json.dumps(metadata))
+            (path / "LICENSE").write_bytes(b"Exact package license\r\n")
+            (path / "NOTICE").write_bytes(b"Exact copyright notice\n")
+        return metadata
+
+    def save_lock(self):
+        (self.ui / "package.json").write_text(json.dumps(self.root_metadata))
+        (self.ui / "package-lock.json").write_text(json.dumps({
+            "name": "ui", "lockfileVersion": 3, "packages": self.packages,
+        }))
+
+    def mock_run(self, args, cwd, env=None):
+        self.calls.append((args, cwd, env))
+        if args == ["git", "rev-parse", "HEAD"]:
+            return b"a" * 40 + b"\n"
+        if args == ["git", "show", "HEAD:LICENSE"]:
+            return self.original
+        if args[:4] == ["go", "mod", "download", "-json"]:
+            return json.dumps({
+                "Path": licenses.GO_MODULE, "Version": licenses.GO_VERSION,
+                "Origin": {"Hash": licenses.GO_COMMIT},
+                "Sum": "h1:" + "A" * 43 + "=",
+                "GoModSum": "h1:" + "B" * 43 + "=",
+            }).encode()
+        if args[:2] == ["go", "run"]:
+            self.assertEqual(args[2:5], [
+                f"{licenses.GO_MODULE}@v2.0.1", "save", "./cmd/local-ai"])
+            self.assertEqual(env["CGO_ENABLED"], "0")
+            self.assertTrue(env["GOFLAGS"].endswith("-mod=readonly"))
+            dest = Path(args[-1])
+            (dest / "example.com/library").mkdir(parents=True)
+            (dest / "example.com/library/LICENSE").write_bytes(b"Go legal text\n")
+            (dest / "example.com/library/NOTICE").write_bytes(b"Go notice\n")
+            return b""
+        self.fail(f"Unexpected command: {args}")
+
+    def collect(self, output=None):
+        with patch.object(licenses, "run", side_effect=self.mock_run), \
+                patch.dict(os.environ, {"CGO_ENABLED": "0"}):
+            return licenses.collect(self.source, output or self.output)
+
+    def test_complete_closure_immutable_bytes_and_portable_inventory(self):
+        before = {p.relative_to(self.source): p.read_bytes()
+                  for p in self.source.rglob("*") if p.is_file()}
+        result = self.collect()
+        self.assertEqual((self.output / "LICENSE-LocalAI").read_bytes(), self.original)
+        self.assertEqual({p.relative_to(self.source): p.read_bytes()
+                          for p in self.source.rglob("*") if p.is_file()}, before)
+        self.assertEqual(result["go"]["commit"], licenses.GO_COMMIT)
+        self.assertEqual(result["npm"]["absent_optional"], ["node_modules/absent"])
+        self.assertEqual([p["name"] for p in result["npm"]["packages"]],
+                         ["@scope/beta", "alpha", "optional"])
+        for key, digest in result["files"].items():
+            self.assertNotIn("\\", key)
+            self.assertEqual(licenses.sha256((self.output / key).read_bytes()), digest)
+        self.assertIn("go/example.com/library/NOTICE", result["files"])
+        self.assertIn("npm/node_modules/alpha/NOTICE", result["files"])
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_deterministic_output(self):
+        first = self.collect()
+        other = self.root / "other"
+        self.assertEqual(first, self.collect(other))
+        self.assertEqual((self.output / "manifest.json").read_bytes(),
+                         (other / "manifest.json").read_bytes())
+
+    def test_missing_license_text(self):
+        (self.ui / "node_modules/alpha/LICENSE").unlink()
+        with self.assertRaisesRegex(ValueError, "No license text"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_missing_required_transitive(self):
+        import shutil
+        shutil.rmtree(self.ui / "node_modules/@scope/beta")
+        with self.assertRaisesRegex(ValueError, "Missing production"):
+            self.collect()
+
+    def test_installed_optional_requires_its_closure(self):
+        self.packages["node_modules/optional"]["dependencies"] = {"missing": "1"}
+        path = self.ui / "node_modules/optional/package.json"
+        data = json.loads(path.read_text())
+        data["dependencies"] = {"missing": "1"}
+        path.write_text(json.dumps(data))
+        self.save_lock()
+        with self.assertRaisesRegex(ValueError, "Unresolved production"):
+            self.collect()
+
+    def test_unknown_missing_or_malformed_declaration(self):
+        path = self.ui / "node_modules/alpha/package.json"
+        original = json.loads(path.read_text())
+        for value in (None, "", "UNKNOWN", "UNLICENSED", "LicenseRef-unknown",
+                      "MIT OR", "MIT AND ()", "SEE LICENSE IN LICENSE", {"type": "MIT"}):
+            with self.subTest(value=value):
+                path.write_text(json.dumps({**original, "license": value}))
+                with self.assertRaises(ValueError):
+                    self.collect(self.root / f"bad-{len(self.calls)}")
+
+    def test_metadata_tamper(self):
+        path = self.ui / "node_modules/alpha/package.json"
+        metadata = json.loads(path.read_text())
+        for field, value in (("version", "9.0.0"), ("name", "impostor"),
+                             ("license", "ISC"), ("dependencies", {})):
+            with self.subTest(field=field):
+                path.write_text(json.dumps({**metadata, field: value}))
+                with self.assertRaisesRegex(ValueError, "mismatch"):
+                    self.collect(self.root / f"bad-{field}")
+
+    def test_lock_v3_required(self):
+        (self.ui / "package-lock.json").write_text('{"lockfileVersion":2}')
+        with self.assertRaisesRegex(ValueError, "v3"):
+            self.collect()
+
+    def test_dev_only_excluded_even_if_installed_without_legal_files(self):
+        path = self.ui / "node_modules/dev"
+        path.mkdir()
+        (path / "package.json").write_text('{"license":"UNKNOWN"}')
+        self.assertFalse(any("node_modules/dev/" in p for p in self.collect()["files"]))
+
+    def test_nested_resolution_and_required_peer(self):
+        self.add_package("node_modules/alpha/node_modules/@scope/beta",
+                         name="@scope/beta", version="2.0.0")
+        # The hoisted beta is still needed by an installed optional package.
+        self.packages["node_modules/optional"]["peerDependencies"] = {"@scope/beta": "*"}
+        metadata = self.ui / "node_modules/optional/package.json"
+        data = json.loads(metadata.read_text())
+        data["peerDependencies"] = {"@scope/beta": "*"}
+        metadata.write_text(json.dumps(data))
+        self.save_lock()
+        self.assertEqual(len(self.collect()["npm"]["packages"]), 4)
+
+    def test_unreachable_nondev_dependency_rejected(self):
+        self.add_package("node_modules/orphan")
+        self.save_lock()
+        with self.assertRaisesRegex(ValueError, "unreachable"):
+            self.collect()
+
+    def test_unsafe_lock_paths_rejected(self):
+        for key in ("../escape", "/absolute", "node_modules/../escape",
+                    r"node_modules\escape", "node_modules/C:escape", "node_modules",
+                    "node_modules/NUL.txt", "node_modules/bad.", "node_modules/bad*"):
+            with self.subTest(key=key):
+                self.packages[key] = {"dev": True}
+                self.save_lock()
+                with self.assertRaises(ValueError):
+                    self.collect(self.root / f"bad-{len(self.calls)}")
+                del self.packages[key]
+
+    def test_symlink_license_and_package_escape_rejected(self):
+        path = self.ui / "node_modules/alpha/LICENSE"
+        path.unlink()
+        path.symlink_to(self.source / "LICENSE")
+        with self.assertRaisesRegex(ValueError, "Symlink"):
+            self.collect()
+
+    def test_symlink_package_ancestor_rejected(self):
+        import shutil
+        scope = self.ui / "node_modules/@scope"
+        moved = self.root / "scope"
+        shutil.move(scope, moved)
+        scope.symlink_to(moved, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "Symlink"):
+            self.collect()
+
+    def test_output_must_be_new_and_outside_source(self):
+        for output in (self.source / "licenses", self.source, self.root):
+            with self.subTest(output=output), self.assertRaises(ValueError):
+                self.collect(output)
+        self.collect()
+        with self.assertRaisesRegex(ValueError, "already exist"):
+            self.collect()
+
+    def test_notice_tree_and_multiple_license_files_preserved(self):
+        package = self.ui / "node_modules/alpha"
+        (package / "legal/licenses").mkdir(parents=True)
+        (package / "legal/licenses/vendor.txt").write_bytes(b"Original vendor license\n")
+        (package / "COPYING.BSD").write_bytes(b"Original BSD legal text\n")
+        (package / "ThirdPartyNoticeText.txt").write_bytes(b"Vendor notices\n")
+        manifest = self.collect()
+        self.assertIn("npm/node_modules/alpha/legal/licenses/vendor.txt", manifest["files"])
+        self.assertIn("npm/node_modules/alpha/COPYING.BSD", manifest["files"])
+        self.assertIn("npm/node_modules/alpha/ThirdPartyNoticeText.txt", manifest["files"])
+
+    def test_empty_legal_file_rejected(self):
+        (self.ui / "node_modules/alpha/NOTICE").write_bytes(b"")
+        with self.assertRaisesRegex(ValueError, "Empty legal"):
+            self.collect()
+
+    def test_cgo_enabled_rejected(self):
+        with patch.dict(os.environ, {"CGO_ENABLED": "1"}), \
+                self.assertRaisesRegex(ValueError, "CGO_ENABLED=0"):
+            licenses.collect(self.source, self.output)
+
+    def test_output_symlink_ancestor_rejected(self):
+        alias = self.root / "alias"
+        alias.symlink_to(self.root, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "Symlink output"):
+            self.collect(alias / "licenses")
+
+    def test_nonportable_and_case_colliding_inventory_rejected(self):
+        if os.name == "nt":
+            self.skipTest("Windows rejects the nonportable fixture name at creation")
+        self.collect()
+        (self.output / "bad\\name").write_bytes(b"unexpected")
+        with self.assertRaisesRegex(ValueError, "Unsafe path"):
+            licenses.verify(self.output)
+        (self.output / "bad\\name").unlink()
+        # Also works on case-insensitive hosts: a differently-cased directory and
+        # its child create a collision after portable case folding.
+        with patch.object(licenses.os, "walk", return_value=[
+                (str(self.output), ["Go", "go"], [])]), \
+                self.assertRaisesRegex(ValueError, "Case-colliding"):
+            licenses.inventory(self.output)
+
+    def test_go_failure_never_commits_manifest(self):
+        def fail(args, cwd, env=None):
+            if args[:2] == ["go", "run"]:
+                raise subprocess.CalledProcessError(1, args)
+            return self.mock_run(args, cwd, env)
+        with patch.object(licenses, "run", side_effect=fail), \
+                self.assertRaises(subprocess.CalledProcessError):
+            licenses.collect(self.source, self.output)
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_wrong_or_missing_tool_origin_rejected(self):
+        for origin in ({}, {"Hash": "b" * 40}):
+            def wrong(args, cwd, env=None):
+                data = self.mock_run(args, cwd, env)
+                if args[:2] == ["go", "mod"]:
+                    identity = json.loads(data)
+                    identity["Origin"] = origin
+                    return json.dumps(identity).encode()
+                return data
+            with self.subTest(origin=origin), \
+                    patch.object(licenses, "run", side_effect=wrong), \
+                    self.assertRaisesRegex(ValueError, "tool identity"):
+                licenses.collect(self.source, self.output)
+            self.assertFalse(self.output.exists())
+
+    def test_inventory_detects_modified_missing_added_and_symlink_files(self):
+        self.collect()
+        path = self.output / "npm/node_modules/alpha/LICENSE"
+        original = path.read_bytes()
+        path.write_bytes(b"tampered")
+        with self.assertRaisesRegex(ValueError, "inventory mismatch"):
+            licenses.verify(self.output)
+        path.unlink()
+        with self.assertRaisesRegex(ValueError, "inventory mismatch"):
+            licenses.verify(self.output)
+        path.write_bytes(original)
+        extra = self.output / "extra"
+        extra.write_bytes(b"unexpected")
+        with self.assertRaisesRegex(ValueError, "inventory mismatch"):
+            licenses.verify(self.output)
+        extra.unlink()
+        path.unlink()
+        path.symlink_to(self.source / "LICENSE")
+        with self.assertRaisesRegex(ValueError, "Symlink"):
+            licenses.verify(self.output)
+
+    def test_empty_go_output_rejected(self):
+        def empty(args, cwd, env=None):
+            return b"" if args[:2] == ["go", "run"] else self.mock_run(args, cwd, env)
+        with patch.object(licenses, "run", side_effect=empty), \
+                self.assertRaisesRegex(ValueError, "no legal materials"):
+            licenses.collect(self.source, self.output)
+        self.assertFalse((self.output / "manifest.json").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

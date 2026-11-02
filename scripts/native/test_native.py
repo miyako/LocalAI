@@ -1,4 +1,5 @@
 import importlib.util
+import base64
 import contextlib
 import io
 import json
@@ -19,36 +20,35 @@ SHA = "ec9274027eadd552d56f2c6c1fe86cd9216a991a"
 class ResolveTests(unittest.TestCase):
     def lookup(self, endpoint):
         self.calls.append(endpoint)
-        if endpoint == "releases/latest":
-            return {"tag_name": "v4.12.1", "draft": False, "prerelease": False}
+        if endpoint.startswith("contents/"):
+            return {"encoding": "base64", "content": base64.b64encode(b"fixture\n").decode()}
         return {"sha": SHA, "commit": {"committer": {"date": "2026-10-23T09:00:00Z"}}}
 
     def setUp(self):
         self.calls = []
 
-    def test_latest_resolved_once(self):
+    def test_default_is_checked_in_immutable_source_lock(self):
         result = native.resolve("", self.lookup)
-        self.assertEqual(self.calls, ["releases/latest", "commits/v4.12.1"])
+        self.assertEqual(self.calls, [])
         self.assertEqual(result["sha"], SHA)
         self.assertEqual(result["version"], "v4.12.1")
+        self.assertEqual(set(result["locks"]), set(native.LOCK_PATHS))
 
     def test_tag_override_does_not_query_latest(self):
         self.assertEqual(native.resolve("v4.12.1", self.lookup)["ref"], "v4.12.1")
-        self.assertEqual(self.calls, ["commits/v4.12.1"])
+        self.assertEqual(self.calls[0], "commits/v4.12.1")
+        self.assertEqual(len(self.calls), 4)
 
     def test_sha_override(self):
         self.assertEqual(native.resolve(SHA, self.lookup)["version"], "sha-" + SHA[:12])
-        self.assertEqual(self.calls, ["commits/" + SHA])
+        self.assertEqual(self.calls[0], "commits/" + SHA)
+        self.assertEqual(len(self.calls), 4)
 
     def test_reject_mutable_or_unsafe_refs(self):
         for ref in ("main", "master", "--help", "v4.12.1\nx=1", "$(id)", "ec927402"):
             with self.subTest(ref=ref), self.assertRaises(ValueError):
                 native.resolve(ref, self.lookup)
         self.assertEqual(self.calls, [])
-
-    def test_reject_prerelease_as_default(self):
-        with self.assertRaises(ValueError):
-            native.resolve("", lambda _: {"draft": False, "prerelease": True})
 
     def test_reject_wrong_sha(self):
         with self.assertRaises(ValueError):
@@ -75,7 +75,14 @@ class PackageTests(unittest.TestCase):
         self.metadata.write_text(json.dumps({
             "sha": SHA, "version": "v4.12.1", "repository": native.UPSTREAM,
             "ref": "v4.12.1", "commit_date": "2026-10-23T09:00:00Z",
+            "locks": {name: native.digest(self.source / name) for name in native.LOCK_PATHS},
         }))
+        self.licenses = root / "native-licenses"
+        self.licenses.mkdir()
+        (self.licenses / "LICENSE-LocalAI").write_bytes(b"fixture\n")
+        (self.licenses / "manifest.json").write_text(json.dumps({
+            "schema": 1, "files": {
+                "LICENSE-LocalAI": native.digest(self.licenses / "LICENSE-LocalAI")}}))
         self.output = root / "output"
         self.dynamic = False
         self.arch = "amd64"
@@ -100,8 +107,10 @@ class PackageTests(unittest.TestCase):
         with patch.object(native.platform, "system", return_value=self.system), \
                 patch.object(native.platform, "machine", return_value=self.machine), \
                 patch.object(native, "command", side_effect=self.command), \
+                patch.object(native.subprocess, "check_output", return_value=b"fixture\n"), \
+                patch.object(native, "smoke"), \
                 contextlib.redirect_stdout(io.StringIO()):
-            native.package(self.source, self.metadata, self.output)
+            native.package(self.source, self.metadata, self.output, self.licenses)
 
     def test_archive_shape_checksums_and_provenance(self):
         self.package()
@@ -132,6 +141,11 @@ class PackageTests(unittest.TestCase):
         info["sha"] = "a" * 40
         self.metadata.write_text(json.dumps(info))
         with self.assertRaisesRegex(ValueError, "Checkout does not match"):
+            self.package()
+
+    def test_changed_dependency_lock_is_fatal(self):
+        (self.source / "go.sum").write_text("changed")
+        with self.assertRaisesRegex(ValueError, "Source dependency lock changed"):
             self.package()
 
     def test_cross_compiled_binary_is_rejected(self):
