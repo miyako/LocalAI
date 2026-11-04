@@ -103,12 +103,15 @@ class LicenseTests(unittest.TestCase):
         # Packages go-licenses cannot classify unless --ignore covers them.
         self.go_unknown = ["example.com/unknown", "example.com/unknown/sub"]
         self.go_saves_vendored = False
+        # Files go-licenses copies from reciprocal-license module sources.
+        self.go_source_copies = {}
+        self.go_empty = []
         self.save_vendored()
         patcher = patch.object(licenses, "VENDORED", self.vendored)
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def save_vendored(self, entries=None, go_entries=None):
+    def save_vendored(self, entries=None, go_entries=None, empty=None):
         path = self.vendored / self.vendored_entry["file"]
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(self.vendored_text)
@@ -119,6 +122,7 @@ class LicenseTests(unittest.TestCase):
             "schema": 1,
             "packages": [self.vendored_entry] if entries is None else entries,
             "go_modules": [self.go_entry] if go_entries is None else go_entries,
+            "go_empty_files": self.go_empty if empty is None else empty,
         }))
 
     def add_unlicensed_native(self, name="@scope/native-x64", version="1.0.0",
@@ -193,6 +197,9 @@ class LicenseTests(unittest.TestCase):
             (dest / "example.com/library").mkdir(parents=True)
             (dest / "example.com/library/LICENSE").write_bytes(b"Go legal text\n")
             (dest / "example.com/library/NOTICE").write_bytes(b"Go notice\n")
+            for path, data in self.go_source_copies.items():
+                (dest / path).parent.mkdir(parents=True, exist_ok=True)
+                (dest / path).write_bytes(data)
             return b""
         self.fail(f"Unexpected command: {args}")
 
@@ -604,11 +611,193 @@ class LicenseTests(unittest.TestCase):
                                                   ["github.com/multiformats/go-base36"]),
             "github.com/xi2/xz": ("v0.0.0-20171230120015-48954b6210f8",
                                   "LicenseRef-public-domain", ["github.com/xi2/xz"]),
+            "github.com/mudler/skillserver": (
+                "v0.0.7-0.20260520220837-a7317cbf9145", "MIT",
+                ["github.com/mudler/skillserver/pkg/domain",
+                 "github.com/mudler/skillserver/pkg/git",
+                 "github.com/mudler/skillserver/pkg/mcp"]),
         }
         self.assertEqual({m: (e["version"], e["license"], e["packages"])
                           for m, (e, _) in entries.items()}, expected)
-        for entry, _ in entries.values():
-            self.assertEqual(entry["provenance"], "module")
+        for module, (entry, path) in entries.items():
+            if module == "github.com/mudler/skillserver":
+                self.assertEqual(entry["provenance"], "readme-statement")
+                self.assertEqual(entry["commit"], "a7317cbf9145fbff2e03c4d41a8d9a8bdc1f04b5")
+                self.assertEqual(path.read_bytes(), b"## License\n\nMIT\n")
+            else:
+                self.assertEqual(entry["provenance"], "module")
+        self.assertNotIn("github.com/eritikass/githubmarkdownconvertergo", entries)
+        self.assertEqual(licenses.vendored_go_empty_files(root), {
+            "go/github.com/philippgille/chromem-go/go.sum": {
+                "module": "github.com/philippgille/chromem-go", "version": "v0.7.0",
+                "path": "go.sum"}})
+
+    def use_readme_statement(self):
+        readme = b"# unknown\n\nUsage.\n\n## License\n\nMIT\n"
+        (self.go_module_dir / "LICENSE").unlink()
+        (self.go_module_dir / "README.md").write_bytes(readme)
+        self.go_text = b"## License\n\nMIT\n"
+        self.go_entry = {
+            **self.go_entry, "license": "MIT", "provenance": "readme-statement",
+            "repository": "https://github.com/example/unknown", "commit": "d" * 40,
+            "source_path": "README.md", "source_sha256": licenses.sha256(readme),
+            "statement": "MIT", "statement_line": 7,
+            "file": "go/example.com/unknown@v1.2.3/README.license-excerpt.md",
+            "sha256": licenses.sha256(self.go_text),
+        }
+        self.save_vendored()
+        return readme
+
+    def test_go_readme_statement_label_carries_through(self):
+        readme = self.use_readme_statement()
+        result = self.collect()
+        record = result["go"]["vendored"][0]
+        self.assertEqual(record["provenance"], "readme-statement")
+        self.assertEqual(record["file"], "go/example.com/unknown/README.license-excerpt.md")
+        self.assertEqual((record["repository"], record["commit"], record["source_path"],
+                          record["source_sha256"], record["statement"],
+                          record["statement_line"]),
+                         ("https://github.com/example/unknown", "d" * 40, "README.md",
+                          licenses.sha256(readme), "MIT", 7))
+        self.assertEqual((self.output / record["file"]).read_bytes(), self.go_text)
+        notice = (self.output / record["notice"]).read_text()
+        self.assertIn("NO LICENSE FILE exists in this module", notice)
+        self.assertIn("comes only from a statement in the upstream README", notice)
+        self.assertIn(f"path: README.md (sha256 {licenses.sha256(readme)})", notice)
+        self.assertIn("statement (line 7): MIT\n", notice)
+        self.assertIn("commit: " + "d" * 40, notice)
+        self.assertIn("Provenance: readme-statement", notice)
+        self.assertIn("  example.com/unknown/sub\n", notice)
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_go_readme_statement_changed_readme_fails(self):
+        readme = self.use_readme_statement()
+        for changed in (readme + b"\nMore.\n", readme.replace(b"MIT", b"GPL-3.0")):
+            with self.subTest(changed=changed):
+                (self.go_module_dir / "README.md").write_bytes(changed)
+                with self.assertRaisesRegex(ValueError, "README differs"):
+                    self.collect(self.root / f"readme-{len(self.calls)}")
+                self.assertFalse(any(c[0][:2] == ["go", "run"] for c in self.calls))
+        # Same digest recorded for a README that does not contain the excerpt.
+        (self.go_module_dir / "README.md").write_bytes(b"MIT\n")
+        self.go_entry["source_sha256"] = licenses.sha256(b"MIT\n")
+        self.save_vendored()
+        with self.assertRaisesRegex(ValueError, "README differs"):
+            self.collect(self.root / "readme-no-excerpt")
+
+    def test_go_readme_statement_fails_once_module_ships_license(self):
+        self.use_readme_statement()
+        (self.go_module_dir / "LICENSE").write_bytes(MIT_TEXT)
+        with self.assertRaisesRegex(ValueError, "now ships legal files"):
+            self.collect()
+
+    def test_go_readme_statement_tamper_rejected(self):
+        self.use_readme_statement()
+        entry = self.go_entry
+        bad = (("statement", "Apache-2.0", "README statement entry"),
+               ("license", "Apache-2.0", "README statement entry"),
+               ("statement_line", 0, "README statement entry"),
+               ("statement_line", True, "README statement entry"),
+               ("commit", "d" * 39, "README statement entry"),
+               ("repository", "https://example.com/x/y", "README statement entry"),
+               ("source_sha256", "x", "README statement entry"),
+               ("sha256", "0" * 64, "digest mismatch"))
+        for field, value, message in bad:
+            with self.subTest(field=field, value=value):
+                self.save_vendored(go_entries=[{**entry, field: value}])
+                with self.assertRaisesRegex(ValueError, message):
+                    self.collect(self.root / f"readme-tamper-{len(self.calls)}")
+        # A pseudo-version must name the recorded commit.
+        self.save_vendored(go_entries=[{**entry, "version": "v0.0.1-20260101000000-aaaaaaaaaaaa"}])
+        with self.assertRaisesRegex(ValueError, "README statement entry"):
+            self.collect(self.root / "readme-pseudo")
+        missing = dict(entry)
+        del missing["statement_line"]
+        self.save_vendored(go_entries=[missing])
+        with self.assertRaisesRegex(ValueError, "Invalid vendored Go license entry"):
+            self.collect(self.root / "readme-missing-key")
+        # An excerpt that no longer states the license is rejected even with a valid digest.
+        for text in (b"## License\n\nMIT-ish\n", b"MIT\n"):
+            with self.subTest(text=text):
+                self.go_text = text
+                self.save_vendored(go_entries=[{**entry, "sha256": licenses.sha256(text)}])
+                with self.assertRaisesRegex(ValueError, "does not state MIT"):
+                    self.collect(self.root / f"readme-excerpt-{len(self.calls)}")
+
+    def use_empty_file(self, version="v0.7.0", data=b""):
+        directory = self.root / "gomod/example.com/mpl@v0.7.0"
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "go.sum").write_bytes(b"")
+        self.go_build["example.com/mpl"] = ("example.com/mpl", version, str(directory), "")
+        self.go_source_copies = {"example.com/mpl/LICENSE": b"Mozilla Public License\n",
+                                 "example.com/mpl/go.sum": data}
+        self.go_empty = [{"module": "example.com/mpl", "version": "v0.7.0", "path": "go.sum"}]
+        self.save_vendored()
+        return directory
+
+    def test_go_listed_empty_file_passes(self):
+        self.use_empty_file()
+        result = self.collect()
+        self.assertEqual((self.output / "go/example.com/mpl/go.sum").read_bytes(), b"")
+        self.assertIn("go/example.com/mpl/go.sum", result["files"])
+        self.assertEqual(result["go"]["allowed_empty_files"], self.go_empty)
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_go_listed_empty_file_without_other_go_entries_still_checks_build(self):
+        self.use_empty_file()
+        self.save_vendored(go_entries=[])
+        self.go_unknown = []
+        self.collect()
+        self.assertTrue(any(c[0][:3] == ["go", "list", "-deps"] for c in self.calls))
+
+    def test_go_unlisted_empty_file_fails(self):
+        self.use_empty_file()
+        self.go_source_copies["example.com/mpl/other.sum"] = b""
+        with self.assertRaisesRegex(ValueError, "empty files: go/example.com/mpl/other.sum"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+        self.go_source_copies = {"example.com/library/empty.txt": b" \n"}
+        self.go_empty = []
+        self.save_vendored()
+        with self.assertRaisesRegex(ValueError, "empty files: go/example.com/library/empty.txt"):
+            self.collect(self.root / "unlisted")
+
+    def test_go_listed_empty_file_version_mismatch_fails(self):
+        self.use_empty_file(version="v0.7.1")
+        with self.assertRaisesRegex(ValueError, "empty Go file module version mismatch"):
+            self.collect()
+        self.assertFalse(any(c[0][:2] == ["go", "run"] for c in self.calls))
+        del self.go_build["example.com/mpl"]
+        with self.assertRaisesRegex(ValueError, "version mismatch.*not in build"):
+            self.collect(self.root / "absent")
+
+    def test_go_listed_empty_file_that_becomes_non_empty_fails(self):
+        directory = self.use_empty_file()
+        (directory / "go.sum").write_bytes(b"example.com/x v1 h1:abc=\n")
+        with self.assertRaisesRegex(ValueError, "not empty in module"):
+            self.collect()
+        (directory / "go.sum").write_bytes(b"")
+        for data in (b"example.com/x v1 h1:abc=\n", b"\n"):
+            with self.subTest(data=data):
+                self.go_source_copies["example.com/mpl/go.sum"] = data
+                with self.assertRaisesRegex(ValueError, "empty"):
+                    self.collect(self.root / f"output-{len(self.calls)}")
+        del self.go_source_copies["example.com/mpl/go.sum"]
+        with self.assertRaisesRegex(ValueError, "Allowed empty Go files missing"):
+            self.collect(self.root / "missing")
+
+    def test_go_empty_file_manifest_tamper_rejected(self):
+        self.use_empty_file()
+        entry = self.go_empty[0]
+        for bad in ({**entry, "path": "../go.sum"}, {**entry, "version": "latest"},
+                    {**entry, "extra": 1}, {"module": entry["module"], "path": "go.sum"}):
+            with self.subTest(entry=bad):
+                self.save_vendored(empty=[bad])
+                with self.assertRaises(ValueError):
+                    self.collect(self.root / f"empty-tamper-{len(self.calls)}")
+        self.save_vendored(empty=[entry, entry])
+        with self.assertRaisesRegex(ValueError, "Duplicate allowed empty"):
+            self.collect(self.root / "empty-duplicate")
 
     def test_metadata_tamper(self):
         path = self.ui / "node_modules/alpha/package.json"

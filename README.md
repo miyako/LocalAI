@@ -108,7 +108,18 @@ cannot classify, keyed to exact module path+version and package paths. Only
 those packages are passed to `--ignore`, and only after `go list -deps` confirms
 the build uses that exact, unreplaced module version, that no unlisted package
 shares an ignored prefix, and that the vendored file is byte-identical to the
-module's own file. `LicenseRef-public-domain` records a public-domain dedication. These are engineering completeness
+module's own file. `LicenseRef-public-domain` records a public-domain dedication.
+One reviewed exception, `github.com/mudler/skillserver` (pkg/domain, pkg/git,
+pkg/mcp), has no LICENSE file upstream; its `readme-statement` entry vendors only
+the README's `## License` / `MIT` excerpt, pinned to the commit, README sha256 and
+line, and fails if the README changes or a legal file appears. No license text is
+synthesized. `github.com/eritikass/githubmarkdownconvertergo` has no license and
+**no exception, so native builds currently fail on it** until upstream resolves
+[eritikass/githubmarkdownconvertergo#13](https://github.com/eritikass/githubmarkdownconvertergo/issues/13).
+`go_empty_files` allows a genuinely empty file inside go-licenses' copy of a
+reciprocal-license module source only for an exact module@version and path
+present in the build (currently `philippgille/chromem-go@v0.7.0` `go.sum`); any
+other empty file fails. These are engineering completeness
 checks, not a legal determination of redistribution rights.
 Dependencies use upstream `go.sum`,
 `npm ci`, and upstream-pinned protobuf generators. Tool versions are recorded;
