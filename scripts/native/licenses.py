@@ -13,7 +13,10 @@ New identifiers require explicit review. License text is never synthesized.
 
 A package that ships no license text fails, unless vendored-licenses/manifest.json
 lists its exact name and version. Each such entry pins the upstream repository,
-commit (npm gitHead) and sha256 of the real LICENSE file vendored next to it.
+the released commit (npm gitHead), the commit the real LICENSE file comes from
+and its sha256. provenance is "release" when both commits are the same, or
+"post-release" when upstream added the file only after that release. The text
+must match the declared license; a generated notice records the provenance.
 """
 
 import argparse
@@ -32,6 +35,16 @@ GO_VERSION = "v2.0.1"
 GO_COMMIT = "3e084b0caf710f7bfead967567539214f598c0a2"
 UI = "core/http/react-ui"
 VENDORED = Path(__file__).resolve().with_name("vendored-licenses")
+# Declared licenses whose vendored text can be checked; others are rejected.
+LICENSE_TEXT = {
+    "MIT": ("Permission is hereby granted, free of charge, to any person obtaining a copy "
+            "of this software and associated documentation files (the \"Software\"), to deal "
+            "in the Software without restriction",
+            "The above copyright notice and this permission notice shall be included in all "
+            "copies or substantial portions of the Software.",
+            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND"),
+}
+VENDORED_NOTICE = "VENDORED-LICENSE-NOTICE.txt"
 SPDX_IDS = frozenset("""
 0BSD MIT ISC Apache-2.0 BSD-2-Clause BSD-3-Clause BSD-4-Clause
 CC0-1.0 CC-BY-3.0 CC-BY-4.0 Unlicense WTFPL Zlib Python-2.0
@@ -196,8 +209,8 @@ def vendored_licenses(root=None):
     manifest = read_json(safe_path(root, "manifest.json"))
     if manifest.get("schema") != 1 or not isinstance(manifest.get("packages"), list):
         raise ValueError("Invalid vendored license manifest")
-    keys = {"name", "version", "license", "repository", "commit",
-            "source_path", "file", "sha256"}
+    keys = {"name", "version", "license", "repository", "provenance", "release_commit",
+            "license_commit", "source_path", "file", "sha256"}
     result = {}
     for entry in manifest["packages"]:
         if not isinstance(entry, dict) or set(entry) != keys:
@@ -207,10 +220,15 @@ def vendored_licenses(root=None):
         if (not isinstance(entry["version"], str) or not entry["version"]
                 or not re.fullmatch(r"https://github\.com/[\w.-]+/[\w.-]+",
                                     entry["repository"])
-                or not re.fullmatch(r"[a-f0-9]{40}", entry["commit"])
+                or not all(re.fullmatch(r"[a-f0-9]{40}", entry[k])
+                           for k in ("release_commit", "license_commit"))
                 or not re.fullmatch(r"[a-f0-9]{64}", entry["sha256"])
                 or spdx(entry["license"]) != entry["license"]):
             raise ValueError(f"Invalid vendored license entry: {entry['name']}")
+        same = entry["release_commit"] == entry["license_commit"]
+        if entry["provenance"] not in ("release", "post-release") or same != (
+                entry["provenance"] == "release"):
+            raise ValueError(f"Invalid vendored license provenance: {entry['name']}")
         identity = (entry["name"], entry["version"])
         if identity in result:
             raise ValueError(f"Duplicate vendored license entry: {identity}")
@@ -218,8 +236,32 @@ def vendored_licenses(root=None):
         data = read_file(path)
         if not data.strip() or sha256(data) != entry["sha256"]:
             raise ValueError(f"Vendored license digest mismatch: {entry['file']}")
+        phrases = LICENSE_TEXT.get(entry["license"])
+        text = " ".join(data.decode("utf-8", "replace").split())
+        if phrases is None or not all(phrase in text for phrase in phrases):
+            raise ValueError(f"Vendored license text does not match {entry['license']}: "
+                             f"{entry['file']}")
         result[identity] = (entry, path)
     return result
+
+
+def vendored_notice(name, version, declaration, entry):
+    lines = [
+        f"{name}@{version} (declared license: {declaration}) ships no license text.",
+        "LICENSE.vendored is the unmodified upstream file:",
+        f"  repository: {entry['repository']}",
+        f"  path: {entry['source_path']}",
+        f"  license commit: {entry['license_commit']}",
+        f"  released commit (npm gitHead): {entry['release_commit']}",
+        f"  sha256: {entry['sha256']}",
+        f"Provenance: {entry['provenance']}",
+    ]
+    if entry["provenance"] == "post-release":
+        lines.append("POST-RELEASE: upstream added this license file after the released "
+                     "commit; it was not part of the released package or its source tree.")
+    else:
+        lines.append("The license file is present at the released commit.")
+    return "\n".join(lines) + "\n"
 
 
 def npm_collect(source, output):
@@ -322,18 +364,26 @@ def npm_collect(source, output):
             if entry["license"] != declaration:
                 raise ValueError(f"Vendored license declaration mismatch: {key}")
             name = "LICENSE.vendored"
-            if any(n.casefold() == name.casefold() for n, _ in files):
+            if any(n.casefold() in (name.casefold(), VENDORED_NOTICE.casefold())
+                   for n, _ in files):
                 raise ValueError(f"Vendored license name collision: {key}")
             files = sorted(files + [(name, original)])
             record["vendored"] = {
-                "repository": entry["repository"], "commit": entry["commit"],
+                "repository": entry["repository"], "provenance": entry["provenance"],
+                "release_commit": entry["release_commit"],
+                "license_commit": entry["license_commit"],
                 "source_path": entry["source_path"], "sha256": entry["sha256"],
-                "file": f"npm/{key}/{name}",
+                "file": f"npm/{key}/{name}", "notice": f"npm/{key}/{VENDORED_NOTICE}",
             }
+            destination.mkdir(parents=True, exist_ok=True)
+            (destination / VENDORED_NOTICE).write_bytes(vendored_notice(
+                metadata["name"], metadata["version"], declaration, entry).encode())
         for name, original in files:
             relative(name)
             copy_bytes(original, destination / name)
         record["files"] = [f"npm/{key}/{name}" for name, _ in files]
+        if "vendored" in record:
+            record["files"] = sorted(record["files"] + [record["vendored"]["notice"]])
         records.append(record)
     return {"packages": records, "absent_optional": skipped}
 

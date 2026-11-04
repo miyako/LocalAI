@@ -14,6 +14,25 @@ licenses = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(licenses)
 
 
+MIT_TEXT = b"""MIT License
+
+Copyright (c) upstream author
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED.
+"""
+
+
 class LicenseTests(unittest.TestCase):
     def setUp(self):
         # All scratch data stays inside this worktree, including on macOS.
@@ -42,10 +61,11 @@ class LicenseTests(unittest.TestCase):
         self.add_package("node_modules/dev", dev=True, installed=False)
         self.save_lock()
         self.vendored = self.root / "vendored"
-        self.vendored_text = b"MIT License\n\nCopyright (c) upstream author\n"
+        self.vendored_text = MIT_TEXT
         self.vendored_entry = {
             "name": "@scope/native-x64", "version": "1.0.0", "license": "MIT",
-            "repository": "https://github.com/example/native", "commit": "c" * 40,
+            "repository": "https://github.com/example/native", "provenance": "release",
+            "release_commit": "c" * 40, "license_commit": "c" * 40,
             "source_path": "LICENSE", "file": f"github.com/example/native/{'c' * 40}/LICENSE",
             "sha256": licenses.sha256(self.vendored_text),
         }
@@ -236,13 +256,18 @@ class LicenseTests(unittest.TestCase):
         record = next(p for p in result["npm"]["packages"]
                       if p["name"] == "@scope/native-x64")
         target = "npm/node_modules/@scope/native-x64/LICENSE.vendored"
-        self.assertEqual(record["files"], [target])
+        notice = "npm/node_modules/@scope/native-x64/VENDORED-LICENSE-NOTICE.txt"
+        self.assertEqual(record["files"], [target, notice])
         self.assertEqual((self.output / target).read_bytes(), self.vendored_text)
         self.assertEqual(record["vendored"], {
-            "repository": "https://github.com/example/native", "commit": "c" * 40,
+            "repository": "https://github.com/example/native", "provenance": "release",
+            "release_commit": "c" * 40, "license_commit": "c" * 40,
             "source_path": "LICENSE", "sha256": licenses.sha256(self.vendored_text),
-            "file": target,
+            "file": target, "notice": notice,
         })
+        text = (self.output / notice).read_text()
+        self.assertIn("Provenance: release\n", text)
+        self.assertNotIn("POST-RELEASE", text)
         self.assertNotIn("vendored", next(p for p in result["npm"]["packages"]
                                           if p["name"] == "alpha"))
         self.assertEqual(licenses.verify(self.output), result)
@@ -267,7 +292,9 @@ class LicenseTests(unittest.TestCase):
     def test_vendored_manifest_tamper_rejected(self):
         self.add_unlicensed_native()
         bad = (("sha256", "0" * 64, "digest mismatch"),
-               ("commit", "main", "Invalid vendored"),
+               ("release_commit", "main", "Invalid vendored"),
+               ("license_commit", "C" * 40, "Invalid vendored"),
+               ("provenance", "unknown", "provenance"),
                ("repository", "https://example.com/x/y", "Invalid vendored"),
                ("license", "UNKNOWN", "Unknown/unsupported"),
                ("file", "../LICENSE", "Unsafe path"))
@@ -290,12 +317,83 @@ class LicenseTests(unittest.TestCase):
                      "linux-arm64-gnu", "linux-arm64-musl", "linux-riscv64-gnu",
                      "linux-x64-gnu", "linux-x64-musl", "win32-arm64-msvc",
                      "win32-x64-msvc"}
-        self.assertEqual(set(entries),
-                         {(f"@napi-rs/canvas-{p}", "0.1.100") for p in platforms})
-        for entry, _ in entries.values():
+        expected = {(f"@napi-rs/canvas-{p}", "0.1.100") for p in platforms}
+        self.assertEqual(set(entries), expected | {("html-parse-stringify", "3.0.1"),
+                                                   ("tr46", "0.0.3")})
+        for identity in expected:
+            entry = entries[identity][0]
             self.assertEqual(entry["repository"], "https://github.com/Brooooooklyn/canvas")
-            self.assertEqual(entry["commit"], "db337893b9b53483050ca7b24c6d306e4da06741")
+            self.assertEqual(entry["provenance"], "release")
+            self.assertEqual(entry["release_commit"],
+                             "db337893b9b53483050ca7b24c6d306e4da06741")
+            self.assertEqual(entry["license_commit"], entry["release_commit"])
+        post = {
+            ("html-parse-stringify", "3.0.1"): (
+                "https://github.com/henrikjoreteg/html-parse-stringify",
+                "ce46022f537ef9b050fac592f9fcc30bf838e5ba",
+                "a2659e6eac3603ba8b46958e0bd35b337108261f"),
+            ("tr46", "0.0.3"): (
+                "https://github.com/jsdom/tr46",
+                "a8009f9ce80ff5dbe71dd71e203afe4e4c878d28",
+                "3a6f29721e7063b9ffd421e461a54beae6170001"),
+        }
+        for identity, (repository, release, license_commit) in post.items():
+            entry = entries[identity][0]
+            self.assertEqual((entry["repository"], entry["provenance"],
+                              entry["release_commit"], entry["license_commit"]),
+                             (repository, "post-release", release, license_commit))
+        for entry, _ in entries.values():
             self.assertEqual(entry["license"], "MIT")
+
+    def test_post_release_label_in_record_and_notice(self):
+        self.vendored_entry.update(provenance="post-release", license_commit="d" * 40)
+        self.save_vendored()
+        self.add_unlicensed_native()
+        result = self.collect()
+        record = next(p for p in result["npm"]["packages"]
+                      if p["name"] == "@scope/native-x64")
+        self.assertEqual(record["vendored"]["provenance"], "post-release")
+        self.assertEqual(record["vendored"]["release_commit"], "c" * 40)
+        self.assertEqual(record["vendored"]["license_commit"], "d" * 40)
+        self.assertIn(record["vendored"]["notice"], record["files"])
+        self.assertIn(record["vendored"]["notice"], result["files"])
+        text = (self.output / record["vendored"]["notice"]).read_text()
+        self.assertIn("@scope/native-x64@1.0.0 (declared license: MIT)", text)
+        self.assertIn("Provenance: post-release\n", text)
+        self.assertIn("POST-RELEASE", text)
+        self.assertIn("license commit: " + "d" * 40, text)
+        self.assertIn("released commit (npm gitHead): " + "c" * 40, text)
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_provenance_must_agree_with_commits(self):
+        self.add_unlicensed_native()
+        for provenance, license_commit in (("post-release", "c" * 40),
+                                           ("release", "d" * 40)):
+            with self.subTest(provenance=provenance):
+                self.save_vendored([{**self.vendored_entry, "provenance": provenance,
+                                     "license_commit": license_commit}])
+                with self.assertRaisesRegex(ValueError, "provenance"):
+                    self.collect(self.root / f"prov-{provenance}")
+
+    def test_vendored_text_must_match_declared_license(self):
+        self.add_unlicensed_native()
+        isc = (b"ISC License\n\nPermission to use, copy, modify, and/or distribute this "
+               b"software for any purpose with or without fee is hereby granted.\n")
+        for text in (isc, MIT_TEXT.replace(b"WITHOUT WARRANTY", b"WITH WARRANTY")):
+            with self.subTest(text=text[:12]):
+                self.vendored_text = text
+                self.vendored_entry["sha256"] = licenses.sha256(text)
+                self.save_vendored()
+                with self.assertRaisesRegex(ValueError, "does not match MIT"):
+                    self.collect(self.root / f"text-{len(text)}")
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_vendored_license_without_text_check_rejected(self):
+        self.add_unlicensed_native(license="ISC")
+        self.vendored_entry["license"] = "ISC"
+        self.save_vendored()
+        with self.assertRaisesRegex(ValueError, "does not match ISC"):
+            self.collect()
 
     def test_metadata_tamper(self):
         path = self.ui / "node_modules/alpha/package.json"

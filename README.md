@@ -98,7 +98,11 @@ license collection uses pinned `google/go-licenses/v2` v2.0.1 plus installed
 production npm dependency metadata/license files; missing legal material fails
 the build rather than being silently omitted. The only exception is an exact npm
 name+version listed in `scripts/native/vendored-licenses/manifest.json`, which
-supplies the real upstream LICENSE pinned by repository, commit and sha256. These are engineering completeness
+supplies the real upstream LICENSE pinned by repository, commit and sha256. Each
+entry records `provenance`: `release` (the file exists at the released commit) or
+`post-release` (upstream added it later; `release_commit` and `license_commit`
+both recorded). The text must match the declared license, and a generated
+`VENDORED-LICENSE-NOTICE.txt` next to it carries the provenance label. These are engineering completeness
 checks, not a legal determination of redistribution rights.
 Dependencies use upstream `go.sum`,
 `npm ci`, and upstream-pinned protobuf generators. Tool versions are recorded;
