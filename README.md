@@ -96,7 +96,9 @@ audit, a dependency license/notice inventory and the source's Go/npm lock files.
 The upstream license is exported from the immutable Git object. Dependency
 license collection uses pinned `google/go-licenses/v2` v2.0.1 plus installed
 production npm dependency metadata/license files; missing legal material fails
-the build rather than being silently omitted. These are engineering completeness
+the build rather than being silently omitted. The only exception is an exact npm
+name+version listed in `scripts/native/vendored-licenses/manifest.json`, which
+supplies the real upstream LICENSE pinned by repository, commit and sha256. These are engineering completeness
 checks, not a legal determination of redistribution rights.
 Dependencies use upstream `go.sum`,
 `npm ci`, and upstream-pinned protobuf generators. Tool versions are recorded;

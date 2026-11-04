@@ -9,6 +9,7 @@ on:
       - 'scripts/native/build.sh'
       - 'scripts/native/native.py'
       - 'scripts/native/licenses.py'
+      - 'scripts/native/vendored-licenses/**'
       - 'scripts/native/resources.py'
       - 'scripts/native/source-lock.json'
       - '.github/workflows/build-server.yml'

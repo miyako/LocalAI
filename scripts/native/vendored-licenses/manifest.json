@@ -1,0 +1,115 @@
+{
+  "packages": [
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-android-arm64",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-darwin-arm64",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-darwin-x64",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-linux-arm-gnueabihf",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-linux-arm64-gnu",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-linux-arm64-musl",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-linux-riscv64-gnu",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-linux-x64-gnu",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-linux-x64-musl",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-win32-arm64-msvc",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "name": "@napi-rs/canvas-win32-x64-msvc",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    }
+  ],
+  "schema": 1
+}

@@ -10,6 +10,10 @@ inventories every file except itself. verify() checks that inventory exactly.
 The npm SPDX vocabulary below is deliberately conservative, not a legal policy:
 unsupported declarations fail rather than being inferred from package contents.
 New identifiers require explicit review. License text is never synthesized.
+
+A package that ships no license text fails, unless vendored-licenses/manifest.json
+lists its exact name and version. Each such entry pins the upstream repository,
+commit (npm gitHead) and sha256 of the real LICENSE file vendored next to it.
 """
 
 import argparse
@@ -27,6 +31,7 @@ GO_MODULE = "github.com/google/go-licenses/v2"
 GO_VERSION = "v2.0.1"
 GO_COMMIT = "3e084b0caf710f7bfead967567539214f598c0a2"
 UI = "core/http/react-ui"
+VENDORED = Path(__file__).resolve().with_name("vendored-licenses")
 SPDX_IDS = frozenset("""
 0BSD MIT ISC Apache-2.0 BSD-2-Clause BSD-3-Clause BSD-4-Clause
 CC0-1.0 CC-BY-3.0 CC-BY-4.0 Unlicense WTFPL Zlib Python-2.0
@@ -176,11 +181,45 @@ def legal_files(package):
                     p.lower() in ("license", "licenses", "licence", "licences")
                     for p in rel.parts[:-1]):
                 result.append((rel.as_posix(), path))
-    if not any(LICENSE.match(Path(name).name)
-               or any(p.lower() in ("licenses", "licences")
-                      for p in PurePosixPath(name).parts[:-1]) for name, _ in result):
-        raise ValueError(f"No license text found in npm package: {package}")
     return sorted(result)
+
+
+def has_license_text(files):
+    return any(LICENSE.match(PurePosixPath(name).name)
+               or any(p.lower() in ("licenses", "licences")
+                      for p in PurePosixPath(name).parts[:-1]) for name, _ in files)
+
+
+def vendored_licenses(root=None):
+    """Load reviewed upstream LICENSE files for exact npm name+version entries."""
+    root = Path(root or VENDORED)
+    manifest = read_json(safe_path(root, "manifest.json"))
+    if manifest.get("schema") != 1 or not isinstance(manifest.get("packages"), list):
+        raise ValueError("Invalid vendored license manifest")
+    keys = {"name", "version", "license", "repository", "commit",
+            "source_path", "file", "sha256"}
+    result = {}
+    for entry in manifest["packages"]:
+        if not isinstance(entry, dict) or set(entry) != keys:
+            raise ValueError(f"Invalid vendored license entry: {entry!r}")
+        dependency_name(entry["name"])
+        relative(entry["source_path"])
+        if (not isinstance(entry["version"], str) or not entry["version"]
+                or not re.fullmatch(r"https://github\.com/[\w.-]+/[\w.-]+",
+                                    entry["repository"])
+                or not re.fullmatch(r"[a-f0-9]{40}", entry["commit"])
+                or not re.fullmatch(r"[a-f0-9]{64}", entry["sha256"])
+                or spdx(entry["license"]) != entry["license"]):
+            raise ValueError(f"Invalid vendored license entry: {entry['name']}")
+        identity = (entry["name"], entry["version"])
+        if identity in result:
+            raise ValueError(f"Duplicate vendored license entry: {identity}")
+        path = safe_path(root, entry["file"])
+        data = read_file(path)
+        if not data.strip() or sha256(data) != entry["sha256"]:
+            raise ValueError(f"Vendored license digest mismatch: {entry['file']}")
+        result[identity] = (entry, path)
+    return result
 
 
 def npm_collect(source, output):
@@ -263,6 +302,7 @@ def npm_collect(source, output):
         raise ValueError("Production npm lock contains unreachable installations: "
                          + ", ".join(sorted(set(installed) - reachable)))
 
+    vendored = vendored_licenses()
     copy_bytes(lock_path, output / "npm/package-lock.json")
     copy_bytes(safe_path(ui, "package.json"), output / "npm/package.json")
     records = []
@@ -270,14 +310,31 @@ def npm_collect(source, output):
         destination = output / "npm" / key
         copy_bytes(path / "package.json", destination / "package.json")
         files = legal_files(path)
+        record = {
+            "path": key, "name": metadata["name"], "version": metadata["version"],
+            "license": declaration, "metadata": f"npm/{key}/package.json",
+        }
+        if not has_license_text(files):
+            match = vendored.get((metadata["name"], metadata["version"]))
+            if match is None:
+                raise ValueError(f"No license text found in npm package: {path}")
+            entry, original = match
+            if entry["license"] != declaration:
+                raise ValueError(f"Vendored license declaration mismatch: {key}")
+            name = "LICENSE.vendored"
+            if any(n.casefold() == name.casefold() for n, _ in files):
+                raise ValueError(f"Vendored license name collision: {key}")
+            files = sorted(files + [(name, original)])
+            record["vendored"] = {
+                "repository": entry["repository"], "commit": entry["commit"],
+                "source_path": entry["source_path"], "sha256": entry["sha256"],
+                "file": f"npm/{key}/{name}",
+            }
         for name, original in files:
             relative(name)
             copy_bytes(original, destination / name)
-        records.append({
-            "path": key, "name": metadata["name"], "version": metadata["version"],
-            "license": declaration, "metadata": f"npm/{key}/package.json",
-            "files": [f"npm/{key}/{name}" for name, _ in files],
-        })
+        record["files"] = [f"npm/{key}/{name}" for name, _ in files]
+        records.append(record)
     return {"packages": records, "absent_optional": skipped}
 
 

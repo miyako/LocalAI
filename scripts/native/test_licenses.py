@@ -41,6 +41,38 @@ class LicenseTests(unittest.TestCase):
         self.add_package("node_modules/absent", optional=True, installed=False)
         self.add_package("node_modules/dev", dev=True, installed=False)
         self.save_lock()
+        self.vendored = self.root / "vendored"
+        self.vendored_text = b"MIT License\n\nCopyright (c) upstream author\n"
+        self.vendored_entry = {
+            "name": "@scope/native-x64", "version": "1.0.0", "license": "MIT",
+            "repository": "https://github.com/example/native", "commit": "c" * 40,
+            "source_path": "LICENSE", "file": f"github.com/example/native/{'c' * 40}/LICENSE",
+            "sha256": licenses.sha256(self.vendored_text),
+        }
+        self.save_vendored()
+        patcher = patch.object(licenses, "VENDORED", self.vendored)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def save_vendored(self, entries=None):
+        path = self.vendored / self.vendored_entry["file"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.vendored_text)
+        (self.vendored / "manifest.json").write_text(json.dumps({
+            "schema": 1,
+            "packages": [self.vendored_entry] if entries is None else entries,
+        }))
+
+    def add_unlicensed_native(self, name="@scope/native-x64", version="1.0.0",
+                              license="MIT"):
+        self.root_metadata["optionalDependencies"][name] = version
+        self.packages[""] = copy.deepcopy(self.root_metadata)
+        self.add_package(f"node_modules/{name}", name=name, version=version,
+                         license=license, optional=True)
+        for legal in ("LICENSE", "NOTICE"):
+            (self.ui / "node_modules" / name / legal).unlink()
+        (self.ui / "node_modules" / name / "README.md").write_text("MIT\n")
+        self.save_lock()
 
     def add_package(self, key, *, name=None, version="1.0.0", license="MIT",
                     optional=False, dev=False, installed=True, **extra):
@@ -197,6 +229,73 @@ class LicenseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown/unsupported SPDX license: OFL-1.1-RFN"):
             self.collect()
         self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_vendored_license_used_for_exact_name_and_version(self):
+        self.add_unlicensed_native()
+        result = self.collect()
+        record = next(p for p in result["npm"]["packages"]
+                      if p["name"] == "@scope/native-x64")
+        target = "npm/node_modules/@scope/native-x64/LICENSE.vendored"
+        self.assertEqual(record["files"], [target])
+        self.assertEqual((self.output / target).read_bytes(), self.vendored_text)
+        self.assertEqual(record["vendored"], {
+            "repository": "https://github.com/example/native", "commit": "c" * 40,
+            "source_path": "LICENSE", "sha256": licenses.sha256(self.vendored_text),
+            "file": target,
+        })
+        self.assertNotIn("vendored", next(p for p in result["npm"]["packages"]
+                                          if p["name"] == "alpha"))
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_vendored_license_version_mismatch_fails(self):
+        self.add_unlicensed_native(version="1.0.1")
+        with self.assertRaisesRegex(ValueError, "No license text found.*native-x64"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_unlisted_package_without_license_still_fails(self):
+        self.add_unlicensed_native(name="@scope/native-arm64")
+        with self.assertRaisesRegex(ValueError, "No license text found.*native-arm64"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_vendored_license_declaration_mismatch_fails(self):
+        self.add_unlicensed_native(license="ISC")
+        with self.assertRaisesRegex(ValueError, "Vendored license declaration mismatch"):
+            self.collect()
+
+    def test_vendored_manifest_tamper_rejected(self):
+        self.add_unlicensed_native()
+        bad = (("sha256", "0" * 64, "digest mismatch"),
+               ("commit", "main", "Invalid vendored"),
+               ("repository", "https://example.com/x/y", "Invalid vendored"),
+               ("license", "UNKNOWN", "Unknown/unsupported"),
+               ("file", "../LICENSE", "Unsafe path"))
+        for field, value, message in bad:
+            with self.subTest(field=field):
+                self.save_vendored([{**self.vendored_entry, field: value}])
+                with self.assertRaisesRegex(ValueError, message):
+                    self.collect(self.root / f"tamper-{field}")
+        self.save_vendored([self.vendored_entry, self.vendored_entry])
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            self.collect(self.root / "duplicate")
+        self.save_vendored()
+        (self.vendored / self.vendored_entry["file"]).write_bytes(b"edited\n")
+        with self.assertRaisesRegex(ValueError, "digest mismatch"):
+            self.collect(self.root / "edited")
+
+    def test_checked_in_vendored_licenses_are_pinned(self):
+        entries = licenses.vendored_licenses(Path(__file__).with_name("vendored-licenses"))
+        platforms = {"android-arm64", "darwin-arm64", "darwin-x64", "linux-arm-gnueabihf",
+                     "linux-arm64-gnu", "linux-arm64-musl", "linux-riscv64-gnu",
+                     "linux-x64-gnu", "linux-x64-musl", "win32-arm64-msvc",
+                     "win32-x64-msvc"}
+        self.assertEqual(set(entries),
+                         {(f"@napi-rs/canvas-{p}", "0.1.100") for p in platforms})
+        for entry, _ in entries.values():
+            self.assertEqual(entry["repository"], "https://github.com/Brooooooklyn/canvas")
+            self.assertEqual(entry["commit"], "db337893b9b53483050ca7b24c6d306e4da06741")
+            self.assertEqual(entry["license"], "MIT")
 
     def test_metadata_tamper(self):
         path = self.ui / "node_modules/alpha/package.json"
