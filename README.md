@@ -96,7 +96,30 @@ audit, a dependency license/notice inventory and the source's Go/npm lock files.
 The upstream license is exported from the immutable Git object. Dependency
 license collection uses pinned `google/go-licenses/v2` v2.0.1 plus installed
 production npm dependency metadata/license files; missing legal material fails
-the build rather than being silently omitted. These are engineering completeness
+the build rather than being silently omitted. The only exception is an exact npm
+name+version listed in `scripts/native/vendored-licenses/manifest.json`, which
+supplies the real upstream LICENSE pinned by repository, commit and sha256. Each
+entry records `provenance`: `release` (the file exists at the released commit) or
+`post-release` (upstream added it later; `release_commit` and `license_commit`
+both recorded). The text must match the declared license, and a generated
+`VENDORED-LICENSE-NOTICE.txt` next to it carries the provenance label. The same
+manifest's `go_modules` lists Go modules whose own license file go-licenses
+cannot classify, keyed to exact module path+version and package paths. Only
+those packages are passed to `--ignore`, and only after `go list -deps` confirms
+the build uses that exact, unreplaced module version, that no unlisted package
+shares an ignored prefix, and that the vendored file is byte-identical to the
+module's own file. `LicenseRef-public-domain` records a public-domain dedication.
+One reviewed exception, `github.com/mudler/skillserver` (pkg/domain, pkg/git,
+pkg/mcp), has no LICENSE file upstream; its `readme-statement` entry vendors only
+the README's `## License` / `MIT` excerpt, pinned to the commit, README sha256 and
+line, and fails if the README changes or a legal file appears. No license text is
+synthesized. `github.com/eritikass/githubmarkdownconvertergo` has no license and
+**no exception, so native builds currently fail on it** until upstream resolves
+[eritikass/githubmarkdownconvertergo#13](https://github.com/eritikass/githubmarkdownconvertergo/issues/13).
+`go_empty_files` allows a genuinely empty file inside go-licenses' copy of a
+reciprocal-license module source only for an exact module@version and path
+present in the build (currently `philippgille/chromem-go@v0.7.0` `go.sum`); any
+other empty file fails. These are engineering completeness
 checks, not a legal determination of redistribution rights.
 Dependencies use upstream `go.sum`,
 `npm ci`, and upstream-pinned protobuf generators. Tool versions are recorded;

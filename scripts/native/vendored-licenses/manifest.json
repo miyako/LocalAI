@@ -1,0 +1,265 @@
+{
+  "go_modules": [
+    {
+      "file": "go/github.com/cyberphone/json-canonicalization@v0.0.0-20241213102144-19d51d7fe467/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/cyberphone/json-canonicalization",
+      "packages": [
+        "github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer"
+      ],
+      "provenance": "module",
+      "sha256": "6821faaddedf2d78c95bb6d98b127e9e616097afd2f6bcc34389f000d13ab12d",
+      "source_path": "LICENSE",
+      "version": "v0.0.0-20241213102144-19d51d7fe467"
+    },
+    {
+      "file": "go/github.com/in-toto/attestation@v1.1.2/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/in-toto/attestation",
+      "packages": [
+        "github.com/in-toto/attestation/go/v1"
+      ],
+      "provenance": "module",
+      "sha256": "b3a6ac899861c2c28a1abd5c7ea8733fefaed6938d730e099c42671386032aeb",
+      "source_path": "LICENSE",
+      "version": "v1.1.2"
+    },
+    {
+      "file": "go/github.com/in-toto/in-toto-golang@v0.9.0/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/in-toto/in-toto-golang",
+      "packages": [
+        "github.com/in-toto/in-toto-golang/in_toto",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.1",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.2",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v1"
+      ],
+      "provenance": "module",
+      "sha256": "b5c26c8a2ad6dd7cac6646e470a32ee42d23c36124caac4e66c989b6545b2a44",
+      "source_path": "LICENSE",
+      "version": "v0.9.0"
+    },
+    {
+      "file": "go/github.com/jackpal/go-nat-pmp@v1.0.2/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/jackpal/go-nat-pmp",
+      "packages": [
+        "github.com/jackpal/go-nat-pmp"
+      ],
+      "provenance": "module",
+      "sha256": "1596ea320a3d9e5180576b2c6dd28aa34b9edcef27693fcd0474e24bda3fdcab",
+      "source_path": "LICENSE",
+      "version": "v1.0.2"
+    },
+    {
+      "module": "github.com/mudler/skillserver",
+      "version": "v0.0.7-0.20260520220837-a7317cbf9145",
+      "packages": [
+        "github.com/mudler/skillserver/pkg/domain",
+        "github.com/mudler/skillserver/pkg/git",
+        "github.com/mudler/skillserver/pkg/mcp"
+      ],
+      "license": "MIT",
+      "provenance": "readme-statement",
+      "repository": "https://github.com/mudler/skillserver",
+      "commit": "a7317cbf9145fbff2e03c4d41a8d9a8bdc1f04b5",
+      "source_path": "README.md",
+      "source_sha256": "cd410653e829b5d1133e04d9809820005a2e0e8525ee10d4e98d32a08ee38a0c",
+      "statement": "MIT",
+      "statement_line": 364,
+      "file": "go/github.com/mudler/skillserver@v0.0.7-0.20260520220837-a7317cbf9145/README.license-excerpt.md",
+      "sha256": "daf005969aac8cb4283b3777361f0244f4cce898b9a983a60b7f0d9e96f559bf"
+    },
+    {
+      "file": "go/github.com/multiformats/go-base36@v0.2.0/LICENSE.md",
+      "license": "Apache-2.0 OR MIT",
+      "module": "github.com/multiformats/go-base36",
+      "packages": [
+        "github.com/multiformats/go-base36"
+      ],
+      "provenance": "module",
+      "sha256": "b5f1f21b1eea5d68df829130c545b431e9c277dd73f68a777e641e44c7fa2f0e",
+      "source_path": "LICENSE.md",
+      "version": "v0.2.0"
+    },
+    {
+      "file": "go/github.com/xi2/xz@v0.0.0-20171230120015-48954b6210f8/LICENSE",
+      "license": "LicenseRef-public-domain",
+      "module": "github.com/xi2/xz",
+      "packages": [
+        "github.com/xi2/xz"
+      ],
+      "provenance": "module",
+      "sha256": "5c640056d513f276d56635af7a0bed81cb7eac02a31b6e56d40c416557a8d8ce",
+      "source_path": "LICENSE",
+      "version": "v0.0.0-20171230120015-48954b6210f8"
+    }
+  ],
+  "packages": [
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-android-arm64",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-darwin-arm64",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-darwin-x64",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-linux-arm-gnueabihf",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-linux-arm64-gnu",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-linux-arm64-musl",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-linux-riscv64-gnu",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-linux-x64-gnu",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-linux-x64-musl",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-win32-arm64-msvc",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
+      "license": "MIT",
+      "license_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "name": "@napi-rs/canvas-win32-x64-msvc",
+      "provenance": "release",
+      "release_commit": "db337893b9b53483050ca7b24c6d306e4da06741",
+      "repository": "https://github.com/Brooooooklyn/canvas",
+      "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+      "source_path": "LICENSE",
+      "version": "0.1.100"
+    },
+    {
+      "file": "github.com/henrikjoreteg/html-parse-stringify/a2659e6eac3603ba8b46958e0bd35b337108261f/LICENSE",
+      "license": "MIT",
+      "license_commit": "a2659e6eac3603ba8b46958e0bd35b337108261f",
+      "name": "html-parse-stringify",
+      "provenance": "post-release",
+      "release_commit": "ce46022f537ef9b050fac592f9fcc30bf838e5ba",
+      "repository": "https://github.com/henrikjoreteg/html-parse-stringify",
+      "sha256": "f51aa7a410f3d3ff9352a5422b76c072588ac76b63861f59447502caeacacc16",
+      "source_path": "LICENSE",
+      "version": "3.0.1"
+    },
+    {
+      "file": "github.com/jsdom/tr46/3a6f29721e7063b9ffd421e461a54beae6170001/LICENSE.md",
+      "license": "MIT",
+      "license_commit": "3a6f29721e7063b9ffd421e461a54beae6170001",
+      "name": "tr46",
+      "provenance": "post-release",
+      "release_commit": "a8009f9ce80ff5dbe71dd71e203afe4e4c878d28",
+      "repository": "https://github.com/jsdom/tr46",
+      "sha256": "eeed1ca176eebad5c73870e233cfff03981fecd319c969475dfa3633036c336b",
+      "source_path": "LICENSE.md",
+      "version": "0.0.3"
+    }
+  ],
+  "schema": 1,
+  "go_empty_files": [
+    {
+      "module": "github.com/philippgille/chromem-go",
+      "version": "v0.7.0",
+      "path": "go.sum"
+    }
+  ]
+}

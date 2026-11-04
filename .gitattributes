@@ -1,3 +1,4 @@
 scripts/native/*.json text eol=lf
+scripts/native/vendored-licenses/** -text
 LocalAI/Resources/native/** -text
 LocalAI/Resources/bin/** -text
