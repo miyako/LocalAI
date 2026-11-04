@@ -152,6 +152,52 @@ class LicenseTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.collect(self.root / f"bad-{len(self.calls)}")
 
+    def add_font_package(self, license="OFL-1.1"):
+        name = "@fontsource-variable/geist"
+        self.root_metadata["dependencies"][name] = "5.2.8"
+        self.packages[""] = copy.deepcopy(self.root_metadata)
+        self.add_package(f"node_modules/{name}", name=name, version="5.2.8", license=license)
+        font_license = self.ui / "node_modules" / name / "LICENSE"
+        font_license.write_bytes(b"This Font Software is licensed under the "
+                                 b"SIL Open Font License, Version 1.1.\n")
+        (self.ui / "node_modules" / name / "NOTICE").unlink()
+        self.save_lock()
+        return name, font_license
+
+    def test_ofl_font_package_collected_with_exact_license_text(self):
+        # Upstream web UI fonts (@fontsource-variable/geist[-mono]) declare OFL-1.1.
+        name, font_license = self.add_font_package()
+        result = self.collect()
+        record = next(p for p in result["npm"]["packages"] if p["name"] == name)
+        self.assertEqual(record["license"], "OFL-1.1")
+        self.assertEqual(record["files"], [f"npm/node_modules/{name}/LICENSE"])
+        self.assertEqual((self.output / record["files"][0]).read_bytes(),
+                         font_license.read_bytes())
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_ofl_requires_license_text(self):
+        _, font_license = self.add_font_package()
+        font_license.unlink()
+        with self.assertRaisesRegex(ValueError, "No license text"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_ofl_expressions_and_unreviewed_variants(self):
+        for value in ("OFL-1.1", "(OFL-1.1 OR MIT)", "MIT AND OFL-1.1"):
+            with self.subTest(value=value):
+                self.assertEqual(licenses.spdx(value), value)
+        for value in ("OFL-1.0", "OFL-1.1-RFN", "OFL-1.1-no-RFN", "OFL-1.1+",
+                      "ofl-1.1", "OFL", "OFL-1.1 OR"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    licenses.spdx(value)
+
+    def test_unreviewed_ofl_variant_fails_collection(self):
+        self.add_font_package("OFL-1.1-RFN")
+        with self.assertRaisesRegex(ValueError, "Unknown/unsupported SPDX license: OFL-1.1-RFN"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
     def test_metadata_tamper(self):
         path = self.ui / "node_modules/alpha/package.json"
         metadata = json.loads(path.read_text())
