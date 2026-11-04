@@ -102,7 +102,13 @@ supplies the real upstream LICENSE pinned by repository, commit and sha256. Each
 entry records `provenance`: `release` (the file exists at the released commit) or
 `post-release` (upstream added it later; `release_commit` and `license_commit`
 both recorded). The text must match the declared license, and a generated
-`VENDORED-LICENSE-NOTICE.txt` next to it carries the provenance label. These are engineering completeness
+`VENDORED-LICENSE-NOTICE.txt` next to it carries the provenance label. The same
+manifest's `go_modules` lists Go modules whose own license file go-licenses
+cannot classify, keyed to exact module path+version and package paths. Only
+those packages are passed to `--ignore`, and only after `go list -deps` confirms
+the build uses that exact, unreplaced module version, that no unlisted package
+shares an ignored prefix, and that the vendored file is byte-identical to the
+module's own file. `LicenseRef-public-domain` records a public-domain dedication. These are engineering completeness
 checks, not a legal determination of redistribution rights.
 Dependencies use upstream `go.sum`,
 `npm ci`, and upstream-pinned protobuf generators. Tool versions are recorded;

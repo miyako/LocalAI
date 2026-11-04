@@ -35,6 +35,7 @@ GO_VERSION = "v2.0.1"
 GO_COMMIT = "3e084b0caf710f7bfead967567539214f598c0a2"
 UI = "core/http/react-ui"
 VENDORED = Path(__file__).resolve().with_name("vendored-licenses")
+PUBLIC_DOMAIN = "LicenseRef-public-domain"
 # Declared licenses whose vendored text can be checked; others are rejected.
 LICENSE_TEXT = {
     "MIT": ("Permission is hereby granted, free of charge, to any person obtaining a copy "
@@ -43,8 +44,19 @@ LICENSE_TEXT = {
             "The above copyright notice and this permission notice shall be included in all "
             "copies or substantial portions of the Software.",
             "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND"),
+    # Short Apache header form (no full text) that go-licenses cannot classify.
+    "Apache-2.0": ("Licensed under the Apache License, Version 2.0 (the \"License\"); "
+                   "you may not use this file except in compliance with the License.",
+                   "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND"),
+    "Apache-2.0 OR MIT": ("Apache-2.0 Software License", "MIT Software License",
+                          "SPDX-License-Identifier: Apache-2.0 OR MIT"),
+    # A public-domain dedication is not a license grant and has no SPDX identifier.
+    PUBLIC_DOMAIN: ("have been put into the public domain",),
 }
 VENDORED_NOTICE = "VENDORED-LICENSE-NOTICE.txt"
+GO_PACKAGE = "./cmd/local-ai"
+GO_MODULE_VERSION = re.compile(
+    r"v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+incompatible)?")
 SPDX_IDS = frozenset("""
 0BSD MIT ISC Apache-2.0 BSD-2-Clause BSD-3-Clause BSD-4-Clause
 CC0-1.0 CC-BY-3.0 CC-BY-4.0 Unlicense WTFPL Zlib Python-2.0
@@ -232,17 +244,118 @@ def vendored_licenses(root=None):
         identity = (entry["name"], entry["version"])
         if identity in result:
             raise ValueError(f"Duplicate vendored license entry: {identity}")
-        path = safe_path(root, entry["file"])
-        data = read_file(path)
-        if not data.strip() or sha256(data) != entry["sha256"]:
-            raise ValueError(f"Vendored license digest mismatch: {entry['file']}")
-        phrases = LICENSE_TEXT.get(entry["license"])
-        text = " ".join(data.decode("utf-8", "replace").split())
-        if phrases is None or not all(phrase in text for phrase in phrases):
-            raise ValueError(f"Vendored license text does not match {entry['license']}: "
-                             f"{entry['file']}")
-        result[identity] = (entry, path)
+        result[identity] = (entry, vendored_file(root, entry))
     return result
+
+
+def vendored_file(root, entry):
+    """Check a vendored file's pinned digest and that it matches its declared license."""
+    path = safe_path(root, entry["file"])
+    data = read_file(path)
+    if not data.strip() or sha256(data) != entry["sha256"]:
+        raise ValueError(f"Vendored license digest mismatch: {entry['file']}")
+    phrases = LICENSE_TEXT.get(entry["license"])
+    text = " ".join(data.decode("utf-8", "replace").split())
+    if phrases is None or not all(phrase in text for phrase in phrases):
+        raise ValueError(f"Vendored license text does not match {entry['license']}: "
+                         f"{entry['file']}")
+    return path
+
+
+def vendored_go_licenses(root=None):
+    """Load module-owned license files go-licenses cannot classify.
+
+    Entries are keyed to an exact module path+version and the exact package paths
+    go-licenses reports. Only those packages are passed to --ignore.
+    """
+    root = Path(root or VENDORED)
+    manifest = read_json(safe_path(root, "manifest.json"))
+    if manifest.get("schema") != 1 or not isinstance(manifest.get("go_modules"), list):
+        raise ValueError("Invalid vendored license manifest")
+    keys = {"module", "version", "packages", "license", "provenance", "source_path",
+            "file", "sha256"}
+    result = {}
+    owners = {}
+    for entry in manifest["go_modules"]:
+        if not isinstance(entry, dict) or set(entry) != keys:
+            raise ValueError(f"Invalid vendored Go license entry: {entry!r}")
+        module = entry["module"]
+        relative(module)
+        relative(entry["source_path"])
+        packages = entry["packages"]
+        if (not re.fullmatch(r"[a-z0-9.-]+\.[a-z]+(?:/[\w.-]+)+", module)
+                or not isinstance(entry["version"], str)
+                or not GO_MODULE_VERSION.fullmatch(entry["version"])
+                or not isinstance(packages, list) or not packages
+                or packages != sorted(set(packages))
+                or not all(isinstance(p, str) and (p == module or p.startswith(module + "/"))
+                           for p in packages)
+                or not re.fullmatch(r"[a-f0-9]{64}", entry["sha256"])
+                or (entry["license"] != PUBLIC_DOMAIN
+                    and spdx(entry["license"]) != entry["license"])):
+            raise ValueError(f"Invalid vendored Go license entry: {module}")
+        # The file must be the module's own; upstream/post-release text is not supported.
+        if entry["provenance"] != "module":
+            raise ValueError(f"Invalid vendored Go license provenance: {module}")
+        if module in result:
+            raise ValueError(f"Duplicate vendored Go license entry: {module}")
+        for package in packages:
+            relative(package)
+            if package in owners:
+                raise ValueError(f"Duplicate vendored Go package: {package}")
+            owners[package] = module
+        result[module] = (entry, vendored_file(root, entry))
+    return result
+
+
+def go_ignores(source, env, vendored):
+    """Verify the build's exact Go packages/modules before trusting vendored files."""
+    if not vendored:
+        return []
+    listing = run(["go", "list", "-deps", "-f",
+                   "{{.ImportPath}}\t{{with .Module}}{{.Path}}\t{{.Version}}\t{{.Dir}}"
+                   "\t{{with .Replace}}{{.Path}}@{{.Version}}{{end}}{{end}}", GO_PACKAGE],
+                  source, env).decode()
+    build = {}
+    for line in listing.splitlines():
+        fields = line.split("\t")
+        if len(fields) == 5:
+            build[fields[0]] = fields[1:]
+    ignores = sorted(p for entry, _ in vendored.values() for p in entry["packages"])
+    for package, (module, version, directory, replace) in sorted(build.items()):
+        # go-licenses --ignore is a prefix match: nothing unlisted may be covered.
+        if package not in ignores and any(package.startswith(i) for i in ignores):
+            raise ValueError(f"Go package would be ignored without a vendored entry: {package}")
+    for module, (entry, _) in sorted(vendored.items()):
+        for package in entry["packages"]:
+            if package not in build:
+                raise ValueError(f"Vendored Go package not in build: {package}")
+            path, version, directory, replace = build[package]
+            if path != module or version != entry["version"] or replace:
+                raise ValueError(f"Vendored Go module version mismatch: {package}: "
+                                 f"{path}@{version}{' => ' + replace if replace else ''}")
+            if not directory:
+                raise ValueError(f"Go module directory unavailable: {module}")
+            original = safe_path(Path(directory), entry["source_path"])
+            if sha256(read_file(original)) != entry["sha256"]:
+                raise ValueError(f"Vendored Go license differs from module file: {module}")
+    return ignores
+
+
+def vendored_go_notice(entry):
+    label = entry["license"]
+    if label == PUBLIC_DOMAIN:
+        label += " (public-domain dedication; not a license grant)"
+    return "\n".join([
+        f"{entry['module']}@{entry['version']}: go-licenses {GO_VERSION} could not "
+        "classify this module's license file.",
+        f"{entry['source_path']} is the module's own unmodified file at that version.",
+        f"  license: {label}",
+        f"  sha256: {entry['sha256']}",
+        f"Provenance: {entry['provenance']}",
+        "Packages excluded from go-licenses with --ignore after the digest was verified:",
+        *(f"  {p}" for p in entry["packages"]),
+    ]) + "\n"
 
 
 def vendored_notice(name, version, declaration, entry):
@@ -453,21 +566,40 @@ def collect(source, output):
     # manifest.json is written last: partial output is never a successful bundle.
     npm = npm_collect(source, output)
     (output / "LICENSE-LocalAI").write_bytes(original_license)
-    args = ["go", "run", f"{GO_MODULE}@{GO_VERSION}", "save",
-            "./cmd/local-ai", "--save_path", str(output / "go")]
+    vendored = vendored_go_licenses()
+    ignores = go_ignores(source, env, vendored)
+    ignore_args = [a for p in ignores for a in ("--ignore", p)]
+    args = ["go", "run", f"{GO_MODULE}@{GO_VERSION}", "save", GO_PACKAGE,
+            *ignore_args, "--save_path", str(output / "go")]
     run(args, source, env)
-    files = inventory(output)
-    if not any(key.startswith("go/") for key in files):
+    # Check go-licenses' own output before vendored files are added beside it.
+    saved = inventory(output)
+    if not any(key.startswith("go/") for key in saved):
         raise ValueError("go-licenses produced no legal materials")
-    if any(not read_file(output / key).strip() for key in files if key.startswith("go/")):
+    if any(not read_file(output / key).strip() for key in saved if key.startswith("go/")):
         raise ValueError("go-licenses produced empty files")
+    go_vendored = []
+    for module, (entry, original) in sorted(vendored.items()):
+        destination = output / "go" / module
+        if destination.exists():
+            raise ValueError(f"go-licenses also saved vendored Go module: {module}")
+        copy_bytes(original, destination / entry["source_path"])
+        (destination / VENDORED_NOTICE).write_bytes(vendored_go_notice(entry).encode())
+        go_vendored.append({
+            "module": module, "version": entry["version"], "packages": entry["packages"],
+            "license": entry["license"], "provenance": entry["provenance"],
+            "sha256": entry["sha256"], "file": f"go/{module}/{entry['source_path']}",
+            "notice": f"go/{module}/{VENDORED_NOTICE}",
+        })
+    files = inventory(output)
     manifest = {
         "schema": 1, "source": {"revision": revision, "license": "HEAD:LICENSE"},
         "go": {"module": GO_MODULE, "version": GO_VERSION, "commit": GO_COMMIT,
                "sum": identity["Sum"], "go_mod_sum": identity["GoModSum"],
                "package": "./cmd/local-ai", "cgo_enabled": "0",
                "command": ["go", "run", f"{GO_MODULE}@{GO_VERSION}", "save",
-                           "./cmd/local-ai", "--save_path", "OUTPUT/go"]},
+                           GO_PACKAGE, *ignore_args, "--save_path", "OUTPUT/go"],
+               "vendored": go_vendored},
         "npm": npm, "files": files,
     }
     write_json(output / "manifest.json", manifest)

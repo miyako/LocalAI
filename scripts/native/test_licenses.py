@@ -33,6 +33,19 @@ IMPLIED.
 """
 
 
+APACHE_HEADER = b"""Copyright 2020 Example Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+"""
+PUBLIC_DOMAIN_TEXT = (b"All the files in this package have been written by the authors.\n"
+                      b"All these files have been put into the public domain.\n")
+
+
 class LicenseTests(unittest.TestCase):
     def setUp(self):
         # All scratch data stays inside this worktree, including on macOS.
@@ -69,18 +82,43 @@ class LicenseTests(unittest.TestCase):
             "source_path": "LICENSE", "file": f"github.com/example/native/{'c' * 40}/LICENSE",
             "sha256": licenses.sha256(self.vendored_text),
         }
+        self.go_text = APACHE_HEADER
+        self.go_entry = {
+            "module": "example.com/unknown", "version": "v1.2.3",
+            "packages": ["example.com/unknown", "example.com/unknown/sub"],
+            "license": "Apache-2.0", "provenance": "module", "source_path": "LICENSE",
+            "file": "go/example.com/unknown@v1.2.3/LICENSE",
+            "sha256": licenses.sha256(self.go_text),
+        }
+        self.go_module_dir = self.root / "gomod/example.com/unknown@v1.2.3"
+        self.go_module_dir.mkdir(parents=True)
+        (self.go_module_dir / "LICENSE").write_bytes(self.go_text)
+        self.go_build = {
+            "example.com/library": ("example.com/library", "v1.0.0", "/mod/library", ""),
+            "example.com/unknown": ("example.com/unknown", "v1.2.3",
+                                    str(self.go_module_dir), ""),
+            "example.com/unknown/sub": ("example.com/unknown", "v1.2.3",
+                                        str(self.go_module_dir), ""),
+        }
+        # Packages go-licenses cannot classify unless --ignore covers them.
+        self.go_unknown = ["example.com/unknown", "example.com/unknown/sub"]
+        self.go_saves_vendored = False
         self.save_vendored()
         patcher = patch.object(licenses, "VENDORED", self.vendored)
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def save_vendored(self, entries=None):
+    def save_vendored(self, entries=None, go_entries=None):
         path = self.vendored / self.vendored_entry["file"]
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(self.vendored_text)
+        path = self.vendored / self.go_entry["file"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.go_text)
         (self.vendored / "manifest.json").write_text(json.dumps({
             "schema": 1,
             "packages": [self.vendored_entry] if entries is None else entries,
+            "go_modules": [self.go_entry] if go_entries is None else go_entries,
         }))
 
     def add_unlicensed_native(self, name="@scope/native-x64", version="1.0.0",
@@ -130,12 +168,28 @@ class LicenseTests(unittest.TestCase):
                 "Sum": "h1:" + "A" * 43 + "=",
                 "GoModSum": "h1:" + "B" * 43 + "=",
             }).encode()
+        if args[:3] == ["go", "list", "-deps"]:
+            self.assertEqual(args[-1], "./cmd/local-ai")
+            lines = ["fmt"] + ["\t".join((package, *module))
+                               for package, module in self.go_build.items()]
+            return ("\n".join(lines) + "\n").encode()
         if args[:2] == ["go", "run"]:
             self.assertEqual(args[2:5], [
                 f"{licenses.GO_MODULE}@v2.0.1", "save", "./cmd/local-ai"])
+            self.assertEqual(args[-2], "--save_path")
             self.assertEqual(env["CGO_ENABLED"], "0")
             self.assertTrue(env["GOFLAGS"].endswith("-mod=readonly"))
+            flags = args[5:-2]
+            self.assertEqual(flags[::2], ["--ignore"] * (len(flags) // 2))
+            ignored = flags[1::2]
+            unknown = [p for p in self.go_unknown
+                       if not any(p.startswith(i) for i in ignored)]
+            if unknown:
+                raise subprocess.CalledProcessError(1, args, b"unknown: " + str(unknown).encode())
             dest = Path(args[-1])
+            if self.go_saves_vendored:
+                (dest / "example.com/unknown").mkdir(parents=True)
+                (dest / "example.com/unknown/LICENSE").write_bytes(b"saved\n")
             (dest / "example.com/library").mkdir(parents=True)
             (dest / "example.com/library/LICENSE").write_bytes(b"Go legal text\n")
             (dest / "example.com/library/NOTICE").write_bytes(b"Go notice\n")
@@ -394,6 +448,167 @@ class LicenseTests(unittest.TestCase):
         self.save_vendored()
         with self.assertRaisesRegex(ValueError, "does not match ISC"):
             self.collect()
+
+    def test_go_vendored_license_used_for_exact_module_and_packages(self):
+        result = self.collect()
+        go_ignores = [a for a in self.calls if a[0][:2] == ["go", "run"]][0][0][5:-2]
+        self.assertEqual(go_ignores, ["--ignore", "example.com/unknown",
+                                      "--ignore", "example.com/unknown/sub"])
+        self.assertEqual(result["go"]["command"][5:-2], go_ignores)
+        self.assertEqual(result["go"]["vendored"], [{
+            "module": "example.com/unknown", "version": "v1.2.3",
+            "packages": ["example.com/unknown", "example.com/unknown/sub"],
+            "license": "Apache-2.0", "provenance": "module",
+            "sha256": licenses.sha256(self.go_text),
+            "file": "go/example.com/unknown/LICENSE",
+            "notice": "go/example.com/unknown/VENDORED-LICENSE-NOTICE.txt",
+        }])
+        self.assertEqual((self.output / "go/example.com/unknown/LICENSE").read_bytes(),
+                         self.go_text)
+        notice = (self.output / "go/example.com/unknown/VENDORED-LICENSE-NOTICE.txt").read_text()
+        self.assertIn("example.com/unknown@v1.2.3", notice)
+        self.assertIn("license: Apache-2.0\n", notice)
+        self.assertIn("  example.com/unknown/sub\n", notice)
+        self.assertIn("go/example.com/unknown/VENDORED-LICENSE-NOTICE.txt", result["files"])
+        self.assertEqual(licenses.verify(self.output), result)
+
+    def test_go_vendored_version_mismatch_fails(self):
+        for version in ("v1.2.4", "v1.2.3-0.20200101000000-abcdefabcdef"):
+            with self.subTest(version=version):
+                self.go_build["example.com/unknown/sub"] = (
+                    "example.com/unknown", version, str(self.go_module_dir), "")
+                with self.assertRaisesRegex(ValueError, "version mismatch"):
+                    self.collect(self.root / f"go-{version}")
+                self.assertFalse(any(c[0][:2] == ["go", "run"] for c in self.calls))
+
+    def test_go_replaced_module_fails(self):
+        self.go_build["example.com/unknown"] = (
+            "example.com/unknown", "v1.2.3", str(self.go_module_dir), "example.com/fork@v9.0.0")
+        with self.assertRaisesRegex(ValueError, "version mismatch.*fork"):
+            self.collect()
+
+    def test_go_unlisted_unknown_module_still_fails(self):
+        self.go_build["example.com/other"] = ("example.com/other", "v1.0.0", "/mod/other", "")
+        self.go_unknown.append("example.com/other")
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_go_new_package_in_vendored_module_still_fails(self):
+        self.go_build["example.com/unknown2"] = (
+            "example.com/unknown2", "v1.0.0", "/mod/unknown2", "")
+        with self.assertRaisesRegex(ValueError, "ignored without a vendored entry: "
+                                                "example.com/unknown2"):
+            self.collect()
+        self.go_build.pop("example.com/unknown2")
+        self.go_build["example.com/unknown/sub/deeper"] = (
+            "example.com/unknown", "v1.2.3", str(self.go_module_dir), "")
+        with self.assertRaisesRegex(ValueError, "ignored without a vendored entry"):
+            self.collect(self.root / "deeper")
+
+    def test_go_listed_package_missing_from_build_fails(self):
+        del self.go_build["example.com/unknown/sub"]
+        with self.assertRaisesRegex(ValueError, "not in build: example.com/unknown/sub"):
+            self.collect()
+
+    def test_go_vendored_file_must_equal_module_file(self):
+        (self.go_module_dir / "LICENSE").write_bytes(APACHE_HEADER + b"edited\n")
+        with self.assertRaisesRegex(ValueError, "differs from module file"):
+            self.collect()
+        (self.go_module_dir / "LICENSE").unlink()
+        with self.assertRaises(OSError):
+            self.collect(self.root / "missing")
+
+    def test_go_licenses_must_not_also_save_vendored_module(self):
+        self.go_saves_vendored = True
+        with self.assertRaisesRegex(ValueError, "also saved vendored Go module"):
+            self.collect()
+        self.assertFalse((self.output / "manifest.json").exists())
+
+    def test_go_public_domain_dedication_recorded_as_such(self):
+        self.go_text = PUBLIC_DOMAIN_TEXT
+        (self.go_module_dir / "LICENSE").write_bytes(self.go_text)
+        self.go_entry.update(license="LicenseRef-public-domain",
+                             sha256=licenses.sha256(self.go_text))
+        self.save_vendored()
+        result = self.collect()
+        self.assertEqual(result["go"]["vendored"][0]["license"], "LicenseRef-public-domain")
+        notice = (self.output / "go/example.com/unknown/VENDORED-LICENSE-NOTICE.txt").read_text()
+        self.assertIn("public-domain dedication; not a license grant", notice)
+        with self.assertRaises(ValueError):
+            licenses.spdx("LicenseRef-public-domain")
+
+    def test_go_vendored_text_must_match_license(self):
+        for license, text in (("Apache-2.0", MIT_TEXT), ("MIT", APACHE_HEADER),
+                              ("LicenseRef-public-domain", APACHE_HEADER),
+                              ("Apache-2.0 OR MIT", APACHE_HEADER)):
+            with self.subTest(license=license):
+                self.go_text = text
+                self.go_entry.update(license=license, sha256=licenses.sha256(text))
+                self.save_vendored()
+                with self.assertRaisesRegex(ValueError, "does not match"):
+                    self.collect(self.root / f"go-text-{len(self.calls)}")
+
+    def test_go_vendored_manifest_tamper_rejected(self):
+        bad = (("provenance", "post-release", "provenance"),
+               ("version", "latest", "Invalid vendored Go"),
+               ("version", "v1.2", "Invalid vendored Go"),
+               ("module", "Example.COM", "Invalid vendored Go"),
+               ("packages", [], "Invalid vendored Go"),
+               ("packages", ["example.com/unknownx"], "Invalid vendored Go"),
+               ("packages", ["example.com/unknown/sub", "example.com/unknown"],
+                "Invalid vendored Go"),
+               ("license", "UNKNOWN", "Unknown/unsupported"),
+               ("sha256", "0" * 64, "digest mismatch"),
+               ("file", "../LICENSE", "Unsafe path"))
+        for field, value, message in bad:
+            with self.subTest(field=field, value=value):
+                self.save_vendored(go_entries=[{**self.go_entry, field: value}])
+                with self.assertRaisesRegex(ValueError, message):
+                    self.collect(self.root / f"go-tamper-{len(self.calls)}")
+        self.save_vendored(go_entries=[self.go_entry, self.go_entry])
+        with self.assertRaisesRegex(ValueError, "Duplicate vendored Go license entry"):
+            self.collect(self.root / "go-duplicate")
+        other = {**self.go_entry, "module": "example.com/unknown/sub",
+                 "packages": ["example.com/unknown/sub"]}
+        self.save_vendored(go_entries=[self.go_entry, other])
+        with self.assertRaisesRegex(ValueError, "Duplicate vendored Go package"):
+            self.collect(self.root / "go-overlap")
+
+    def test_no_go_entries_runs_without_ignores(self):
+        self.save_vendored(go_entries=[])
+        self.go_unknown = []
+        result = self.collect()
+        self.assertFalse(any(c[0][:3] == ["go", "list", "-deps"] for c in self.calls))
+        self.assertEqual(result["go"]["vendored"], [])
+        self.assertEqual(result["go"]["command"][5:], ["--save_path", "OUTPUT/go"])
+
+    def test_checked_in_go_vendored_licenses_are_pinned(self):
+        root = Path(__file__).with_name("vendored-licenses")
+        entries = licenses.vendored_go_licenses(root)
+        expected = {
+            "github.com/cyberphone/json-canonicalization": (
+                "v0.0.0-20241213102144-19d51d7fe467", "Apache-2.0",
+                ["github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer"]),
+            "github.com/in-toto/attestation": ("v1.1.2", "Apache-2.0",
+                                               ["github.com/in-toto/attestation/go/v1"]),
+            "github.com/in-toto/in-toto-golang": ("v0.9.0", "Apache-2.0", [
+                "github.com/in-toto/in-toto-golang/in_toto",
+                "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common",
+                "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.1",
+                "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.2",
+                "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v1"]),
+            "github.com/jackpal/go-nat-pmp": ("v1.0.2", "Apache-2.0",
+                                              ["github.com/jackpal/go-nat-pmp"]),
+            "github.com/multiformats/go-base36": ("v0.2.0", "Apache-2.0 OR MIT",
+                                                  ["github.com/multiformats/go-base36"]),
+            "github.com/xi2/xz": ("v0.0.0-20171230120015-48954b6210f8",
+                                  "LicenseRef-public-domain", ["github.com/xi2/xz"]),
+        }
+        self.assertEqual({m: (e["version"], e["license"], e["packages"])
+                          for m, (e, _) in entries.items()}, expected)
+        for entry, _ in entries.values():
+            self.assertEqual(entry["provenance"], "module")
 
     def test_metadata_tamper(self):
         path = self.ui / "node_modules/alpha/package.json"

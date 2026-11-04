@@ -1,4 +1,82 @@
 {
+  "go_modules": [
+    {
+      "file": "go/github.com/cyberphone/json-canonicalization@v0.0.0-20241213102144-19d51d7fe467/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/cyberphone/json-canonicalization",
+      "packages": [
+        "github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer"
+      ],
+      "provenance": "module",
+      "sha256": "6821faaddedf2d78c95bb6d98b127e9e616097afd2f6bcc34389f000d13ab12d",
+      "source_path": "LICENSE",
+      "version": "v0.0.0-20241213102144-19d51d7fe467"
+    },
+    {
+      "file": "go/github.com/in-toto/attestation@v1.1.2/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/in-toto/attestation",
+      "packages": [
+        "github.com/in-toto/attestation/go/v1"
+      ],
+      "provenance": "module",
+      "sha256": "b3a6ac899861c2c28a1abd5c7ea8733fefaed6938d730e099c42671386032aeb",
+      "source_path": "LICENSE",
+      "version": "v1.1.2"
+    },
+    {
+      "file": "go/github.com/in-toto/in-toto-golang@v0.9.0/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/in-toto/in-toto-golang",
+      "packages": [
+        "github.com/in-toto/in-toto-golang/in_toto",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.1",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.2",
+        "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v1"
+      ],
+      "provenance": "module",
+      "sha256": "b5c26c8a2ad6dd7cac6646e470a32ee42d23c36124caac4e66c989b6545b2a44",
+      "source_path": "LICENSE",
+      "version": "v0.9.0"
+    },
+    {
+      "file": "go/github.com/jackpal/go-nat-pmp@v1.0.2/LICENSE",
+      "license": "Apache-2.0",
+      "module": "github.com/jackpal/go-nat-pmp",
+      "packages": [
+        "github.com/jackpal/go-nat-pmp"
+      ],
+      "provenance": "module",
+      "sha256": "1596ea320a3d9e5180576b2c6dd28aa34b9edcef27693fcd0474e24bda3fdcab",
+      "source_path": "LICENSE",
+      "version": "v1.0.2"
+    },
+    {
+      "file": "go/github.com/multiformats/go-base36@v0.2.0/LICENSE.md",
+      "license": "Apache-2.0 OR MIT",
+      "module": "github.com/multiformats/go-base36",
+      "packages": [
+        "github.com/multiformats/go-base36"
+      ],
+      "provenance": "module",
+      "sha256": "b5f1f21b1eea5d68df829130c545b431e9c277dd73f68a777e641e44c7fa2f0e",
+      "source_path": "LICENSE.md",
+      "version": "v0.2.0"
+    },
+    {
+      "file": "go/github.com/xi2/xz@v0.0.0-20171230120015-48954b6210f8/LICENSE",
+      "license": "LicenseRef-public-domain",
+      "module": "github.com/xi2/xz",
+      "packages": [
+        "github.com/xi2/xz"
+      ],
+      "provenance": "module",
+      "sha256": "5c640056d513f276d56635af7a0bed81cb7eac02a31b6e56d40c416557a8d8ce",
+      "source_path": "LICENSE",
+      "version": "v0.0.0-20171230120015-48954b6210f8"
+    }
+  ],
   "packages": [
     {
       "file": "github.com/Brooooooklyn/canvas/db337893b9b53483050ca7b24c6d306e4da06741/LICENSE",
