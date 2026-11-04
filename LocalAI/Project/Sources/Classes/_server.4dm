@@ -47,7 +47,9 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 		$valueType:=Value type:C1509($arg.value)
 		$key:=Replace string:C233($arg.key; "_"; "-"; *)
 		Case of 
-			: ($valueType=Is real:K8:4) || ($valueType=Is integer:K8:5)
+			: ($valueType=Is real:K8:4)
+				$command+=(" --"+$key+"="+_argNumber($arg.value)+" ")
+			: ($valueType=Is integer:K8:5)
 				$command+=(" --"+$key+"="+String:C10($arg.value)+" ")
 			: ($valueType=Is text:K8:3)
 				$command+=(" --"+$key+"="+This:C1470.escape($arg.value)+" ")
@@ -236,7 +238,9 @@ Function _simple($params : Object; $option : Variant; $formula : 4D:C1709.Functi
 			$valueType:=Value type:C1509($arg.value)
 			$key:=Replace string:C233($arg.key; "_"; "-"; *)
 			Case of 
-				: ($valueType=Is real:K8:4) || ($valueType=Is integer:K8:5)
+				: ($valueType=Is real:K8:4)
+					$command+=(" --"+$key+"="+_argNumber($arg.value)+" ")
+				: ($valueType=Is integer:K8:5)
 					$command+=(" --"+$key+"="+String:C10($arg.value)+" ")
 				: ($valueType=Is text:K8:3)
 					$command+=(" --"+$key+"="+This:C1470.escape($arg.value)+" ")

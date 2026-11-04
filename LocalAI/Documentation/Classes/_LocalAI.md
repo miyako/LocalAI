@@ -169,7 +169,10 @@ Commands and flags were checked read-only against the pinned upstream sources:
 
 The installed-list parser accepts both `(installed)` and backend version/upgrade
 suffixes, without including the version in the gallery identifier. Numeric
-options accept integer and real values. Explicit boolean options are emitted
+options accept integer and real values. Real values always use `.` as the
+decimal separator, regardless of the system locale (`temp: 0.3` emits
+`--temp=0.3`, not `--temp=0,3`); very small values may use exponent notation
+(`0.00001` emits `1E-05`). Explicit boolean options are emitted
 as `--flag=true` or `--flag=false`, preserving a caller's override of a
 default-true upstream option. Component metadata is not emitted as CLI flags.
 Pass only flags supported by the selected subcommand; arbitrary option names are
