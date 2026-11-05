@@ -173,7 +173,16 @@ SERVER="$PWD/bin/local-ai"
 cd "$HOME/.localai-native"
 "$SERVER" run --address 127.0.0.1:8080 \
   --models-path "$LOCALAI_MODELS_PATH" --backends-path "$LOCALAI_BACKENDS_PATH"
+# macOS only: add --addons-enabled=false (see below).
 ```
+
+**macOS: pass `--addons-enabled=false`** (or `LOCALAI_ADDONS_ENABLED=false`). At the
+pinned commit, upstream's add-on supervisor is implemented only for Linux and fails
+closed elsewhere, while add-ons are on by default, so the server exits with
+"addon runtime unavailable" without the flag. Add-on state is also rejected under
+a symlinked ancestor directory (for example macOS `/var` → `/private/var`), so
+point `--data-path` at a real (resolved) path. The CI smoke test runs with
+add-ons disabled on every target.
 
 In another terminal:
 
