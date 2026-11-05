@@ -28,9 +28,10 @@ Windows/Intel resources and resolver contracts are preserved.
 
 The verified v4.12.1 macOS executable is 190,504,960 bytes, over GitHub's
 100 MiB limit: release reuse is intentional, not LFS or an oversized Git commit.
-No `server-*` release exists as of 2026-11-02. Publish fails before versioning
-until native publication and reviewed exact-lock adoption are complete; no
-latest/legacy fallback is allowed. Native publication never dispatches component
+The component lock is adopted from release `server-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-41947357295-1`
+(source `sha-c9b5d0ff5cfa`); Publish fails if that exact release, its assets or
+checksums change, and no latest/legacy fallback is allowed. Only the macOS arm64
+executable comes from it; Intel macOS and Windows keep the legacy binaries. Native publication never dispatches component
 Publish, and bot `GITHUB_TOKEN` pushes do not trigger another push workflow.
 
 The checked-in resource executables are legacy binaries, not newly built or

@@ -13,10 +13,13 @@ rebuilding the native server. Legacy Intel macOS/Windows Resources stay checked 
 **Why native binaries are not committed:** the verified v4.12.1 macOS arm64
 server is **190,504,960 bytes (181.68 MiB)**, over GitHub's 100 MiB file limit.
 The approved strategy is **pinned native release reuse**, not an oversized Git
-commit or implicit LFS migration. No `server-*` release exists as of 2026-11-02.
-The component lock is explicitly unconfigured: **Publish will fail before versioning
-until a validated native release is published and its exact lock is adopted**.
-It never falls back to latest or silently packages the legacy arm64 executable.
+commit or implicit LFS migration. The component lock
+([`scripts/native/component-lock.json`](scripts/native/component-lock.json)) is
+adopted from the exact release `server-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-41947357295-1` (source `sha-c9b5d0ff5cfa`); Publish stages
+its macOS arm64 executable transiently. Only the arm64 executable is replaced: the
+Intel macOS and Windows executables remain the checked-in legacy binaries (no
+native server release covers those targets). Publish never falls back to latest or
+silently packages the legacy arm64 executable.
 
 ## Native server CLI
 
