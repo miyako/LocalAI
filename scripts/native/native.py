@@ -166,11 +166,12 @@ def package(source, metadata, output, licenses):
 def smoke(binary, sha, version):
     binary = binary.resolve()
     with tempfile.TemporaryDirectory(prefix="localai-smoke-") as temp:
-        root = Path(temp)
+        # Upstream rejects add-on state under symlinked ancestors (macOS /var).
+        root = Path(temp).resolve()
         env = {key: value for key, value in os.environ.items()
                if not key.startswith(("LOCALAI_", "PRELOAD_", "HF_", "AWS_"))
                and key in ("PATH", "TMPDIR", "SYSTEMROOT", "LANG")}
-        env.update(HOME=temp, XDG_CONFIG_HOME=temp, XDG_DATA_HOME=temp, NO_COLOR="1")
+        env.update(HOME=str(root), XDG_CONFIG_HOME=str(root), XDG_DATA_HOME=str(root), NO_COLOR="1")
         help_text = command(str(binary), "--help", cwd=root, env=env)
         version_text = command(str(binary), "--version", cwd=root, env=env)
         if version_text != version or sha not in help_text or version not in help_text:
@@ -183,7 +184,8 @@ def smoke(binary, sha, version):
         args = [str(binary), "run", "--address", f"127.0.0.1:{port}",
                 "--galleries", "[]", "--backend-galleries", "[]",
                 "--autoload-galleries=false", "--autoload-backend-galleries=false",
-                "--disable-agents", "--disable-local-ai-assistant", "--disable-mcp"]
+                "--disable-agents", "--disable-local-ai-assistant", "--disable-mcp",
+                "--addons-enabled=false"]
         for flag, folder in {
             "models-path": "models", "backends-path": "backends",
             "backends-system-path": "system-backends", "data-path": "data",

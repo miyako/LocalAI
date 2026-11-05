@@ -611,21 +611,13 @@ class LicenseTests(unittest.TestCase):
                                                   ["github.com/multiformats/go-base36"]),
             "github.com/xi2/xz": ("v0.0.0-20171230120015-48954b6210f8",
                                   "LicenseRef-public-domain", ["github.com/xi2/xz"]),
-            "github.com/mudler/skillserver": (
-                "v0.0.7-0.20260520220837-a7317cbf9145", "MIT",
-                ["github.com/mudler/skillserver/pkg/domain",
-                 "github.com/mudler/skillserver/pkg/git",
-                 "github.com/mudler/skillserver/pkg/mcp"]),
         }
         self.assertEqual({m: (e["version"], e["license"], e["packages"])
                           for m, (e, _) in entries.items()}, expected)
-        for module, (entry, path) in entries.items():
-            if module == "github.com/mudler/skillserver":
-                self.assertEqual(entry["provenance"], "readme-statement")
-                self.assertEqual(entry["commit"], "a7317cbf9145fbff2e03c4d41a8d9a8bdc1f04b5")
-                self.assertEqual(path.read_bytes(), b"## License\n\nMIT\n")
-            else:
-                self.assertEqual(entry["provenance"], "module")
+        for entry, _ in entries.values():
+            self.assertEqual(entry["provenance"], "module")
+        # Only reached through LocalAGI, which upstream dropped after v4.12.1.
+        self.assertNotIn("github.com/mudler/skillserver", entries)
         self.assertNotIn("github.com/eritikass/githubmarkdownconvertergo", entries)
         self.assertEqual(licenses.vendored_go_empty_files(root), {
             "go/github.com/philippgille/chromem-go/go.sum": {

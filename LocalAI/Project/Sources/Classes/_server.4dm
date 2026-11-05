@@ -70,6 +70,13 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 	
 	$command+=(" --localai-config-dir "+This:C1470.escape($HOME.path)+" ")
 	
+	//The add-on runtime is Linux-only upstream and on by default. An environment
+	//variable (not a flag) keeps legacy executables, which reject unknown flags, working.
+	//An explicit addons_enabled option becomes a flag above and takes precedence.
+	If (Undefined:C82($option.addons_enabled))
+		This:C1470.controller.variables.LOCALAI_ADDONS_ENABLED:="false"
+	End if 
+	
 	//SET TEXT TO PASTEBOARD($command)
 	
 	return This:C1470.controller.execute($command; Null:C1517; $option.data).worker

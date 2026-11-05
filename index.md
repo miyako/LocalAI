@@ -19,9 +19,11 @@ server. Installing the CLI alone does not install an inference engine or model.
 The server workflow loads the checked-in **source-lock.json** (immutable commit
 and Go/npm dependency-lock hashes), then builds every target from that same source.
 It does not automatically track latest. An exact tag or full commit SHA can be
-supplied manually and resolved once for the matrix. The checked baseline
-on 2026-11-02 is **v4.12.1**,
-[`ec9274027eadd552d56f2c6c1fe86cd9216a991a`](https://github.com/mudler/LocalAI/tree/ec9274027eadd552d56f2c6c1fe86cd9216a991a).
+supplied manually and resolved once for the matrix. The pinned baseline
+(2026-11-05) is the unreleased upstream master commit
+[`c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23`](https://github.com/mudler/LocalAI/tree/c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23)
+(`sha-c9b5d0ff5cfa`), because no tagged release yet drops an unlicensed transitive
+dependency that v4.12.1 still includes.
 This is not the 4D component's version.
 
 | Archive target | Native build runner | Scope |
@@ -47,7 +49,7 @@ component release. Adding the workflow does not itself publish any binaries.
 An example archive name is:
 
 ```text
-local-ai-v4.12.1-ec9274027ead-darwin-arm64-server-cli-only.tar.gz
+local-ai-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-darwin-arm64-server-cli-only.tar.gz
 ```
 
 Select the version, SHA and target actually listed in the chosen release.

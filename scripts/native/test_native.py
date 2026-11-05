@@ -15,6 +15,9 @@ native = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(native)
 
 SHA = "ec9274027eadd552d56f2c6c1fe86cd9216a991a"
+# Unreleased upstream master: no tagged release yet drops the unlicensed
+# github.com/eritikass/githubmarkdownconvertergo dependency (via LocalAGI).
+PINNED_SHA = "c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23"
 
 
 class ResolveTests(unittest.TestCase):
@@ -30,8 +33,9 @@ class ResolveTests(unittest.TestCase):
     def test_default_is_checked_in_immutable_source_lock(self):
         result = native.resolve("", self.lookup)
         self.assertEqual(self.calls, [])
-        self.assertEqual(result["sha"], SHA)
-        self.assertEqual(result["version"], "v4.12.1")
+        self.assertEqual(result["sha"], PINNED_SHA)
+        self.assertEqual(result["ref"], PINNED_SHA)
+        self.assertEqual(result["version"], "sha-" + PINNED_SHA[:12])
         self.assertEqual(set(result["locks"]), set(native.LOCK_PATHS))
 
     def test_tag_override_does_not_query_latest(self):

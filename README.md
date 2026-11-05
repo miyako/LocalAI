@@ -39,8 +39,13 @@ job passes that snapshot to the entire matrix.
 Manual builds accept an exact `vX.Y.Z` tag (optional suffix) or full lowercase
 40-character SHA to rebuild a specific source revision.
 
-The source baseline verified on **2026-11-02** is **v4.12.1**,
-[`ec9274027eadd552d56f2c6c1fe86cd9216a991a`](https://github.com/mudler/LocalAI/tree/ec9274027eadd552d56f2c6c1fe86cd9216a991a).
+The pinned source baseline (2026-11-05) is the **unreleased upstream master commit**
+[`c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23`](https://github.com/mudler/LocalAI/tree/c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23)
+(version string `sha-c9b5d0ff5cfa`), not a tagged release. It was chosen because
+no release yet drops the unlicensed `github.com/eritikass/githubmarkdownconvertergo`
+dependency: v4.12.1 (`ec9274027eadd552d56f2c6c1fe86cd9216a991a`) still pulls it
+in via `github.com/mudler/LocalAGI`, which upstream master has since removed.
+Move back to a tag once a release includes that removal.
 Default runs remain pinned until the source lock is deliberately reviewed and
 updated. Exact manual overrides resolve the requested source and lockfile bytes
 once and record them in the artifacts. Component adoption independently locks
@@ -52,7 +57,7 @@ the exact published release, source snapshot and asset bytes.
 | `linux-amd64` | `ubuntu-24.04` | CGO-disabled static server; Ubuntu 24.04 CI baseline |
 | `linux-arm64` | `ubuntu-24.04-arm` | Same, ARM64 host, no emulation |
 
-This follows upstream's v4.12.1 server release scope. **Intel macOS and native
+This follows upstream's server release scope. **Intel macOS and native
 Windows are not built or supported here**; upstream excludes Darwin amd64 and
 Windows from its server release configuration. Older component platform badges
 did not establish current native server support. WSL2 users may use the matching
@@ -86,7 +91,7 @@ Each CI artifact wraps one archive and its `.sha256` file. Published server
 releases instead have three archives and a combined `SHA256SUMS`. Example name:
 
 ```text
-local-ai-v4.12.1-ec9274027ead-darwin-arm64-server-cli-only.tar.gz
+local-ai-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-darwin-arm64-server-cli-only.tar.gz
 ```
 
 New archives contain `bin/local-ai`, upstream `LICENSE-LocalAI`, `PACKAGE.txt`,
@@ -109,12 +114,15 @@ those packages are passed to `--ignore`, and only after `go list -deps` confirms
 the build uses that exact, unreplaced module version, that no unlisted package
 shares an ignored prefix, and that the vendored file is byte-identical to the
 module's own file. `LicenseRef-public-domain` records a public-domain dedication.
-One reviewed exception, `github.com/mudler/skillserver` (pkg/domain, pkg/git,
-pkg/mcp), has no LICENSE file upstream; its `readme-statement` entry vendors only
-the README's `## License` / `MIT` excerpt, pinned to the commit, README sha256 and
-line, and fails if the README changes or a legal file appears. No license text is
-synthesized. `github.com/eritikass/githubmarkdownconvertergo` has no license and
-**no exception, so native builds currently fail on it** until upstream resolves
+A `readme-statement` entry may record a reviewed exception for a module with no
+LICENSE file upstream: it vendors only the README's license excerpt, pinned to the
+commit, README sha256 and line, and fails if the README changes or a legal file
+appears. None is currently needed: the former `github.com/mudler/skillserver`
+exception was removed because skillserver came only via LocalAGI, which the pinned
+source no longer builds. No license text is synthesized.
+`github.com/eritikass/githubmarkdownconvertergo` has no license and **no
+exception**; tags that still depend on it (v4.12.1 and earlier, via LocalAGI) fail
+license collection until upstream resolves
 [eritikass/githubmarkdownconvertergo#13](https://github.com/eritikass/githubmarkdownconvertergo/issues/13).
 `go_empty_files` allows a genuinely empty file inside go-licenses' copy of a
 reciprocal-license module source only for an exact module@version and path
@@ -133,8 +141,8 @@ For example, after selecting a **server** release tag from Releases:
 
 ```sh
 # Replace with a real server-* release tag and the version/SHA recorded there.
-RELEASE_TAG=server-v4.12.1-ec9274027ead-RUN_ID-ATTEMPT
-ASSET=local-ai-v4.12.1-ec9274027ead-darwin-arm64-server-cli-only.tar.gz
+RELEASE_TAG=server-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-RUN_ID-ATTEMPT
+ASSET=local-ai-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-darwin-arm64-server-cli-only.tar.gz
 gh release download "$RELEASE_TAG" --repo miyako/LocalAI \
   --pattern "$ASSET" --pattern SHA256SUMS
 # Check only the archive you downloaded. Use sha256sum on Linux.
@@ -165,7 +173,18 @@ SERVER="$PWD/bin/local-ai"
 cd "$HOME/.localai-native"
 "$SERVER" run --address 127.0.0.1:8080 \
   --models-path "$LOCALAI_MODELS_PATH" --backends-path "$LOCALAI_BACKENDS_PATH"
+# macOS only: add --addons-enabled=false (see below).
 ```
+
+**macOS: pass `--addons-enabled=false`** (or `LOCALAI_ADDONS_ENABLED=false`). At the
+pinned commit, upstream's add-on supervisor is implemented only for Linux and fails
+closed elsewhere, while add-ons are on by default, so the server exits with
+"addon runtime unavailable" without the flag. Add-on state is also rejected under
+a symlinked ancestor directory (for example macOS `/var` → `/private/var`), so
+point `--data-path` at a real (resolved) path. The CI smoke test runs with
+add-ons disabled on every target. The 4D component's `start()` sets
+`LOCALAI_ADDONS_ENABLED=false` for the server process unless you pass an explicit
+`addons_enabled` option (see [_LocalAI.md](LocalAI/Documentation/Classes/_LocalAI.md)).
 
 In another terminal:
 
@@ -230,7 +249,8 @@ git -C upstream checkout --detach "$SHA"
 bash scripts/native/build.sh upstream source.json dist
 mkdir -p extracted
 tar -xzf dist/*.tar.gz -C extracted
-python3 scripts/native/native.py smoke extracted/bin/local-ai "$SHA" v4.12.1
+VERSION=$(python3 -c 'import json; print(json.load(open("source.json"))["version"])')
+python3 scripts/native/native.py smoke extracted/bin/local-ai "$SHA" "$VERSION"
 ```
 
 Generated source files remain in the upstream checkout; dependency license

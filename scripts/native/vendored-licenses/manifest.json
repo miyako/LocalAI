@@ -53,25 +53,6 @@
       "version": "v1.0.2"
     },
     {
-      "module": "github.com/mudler/skillserver",
-      "version": "v0.0.7-0.20260520220837-a7317cbf9145",
-      "packages": [
-        "github.com/mudler/skillserver/pkg/domain",
-        "github.com/mudler/skillserver/pkg/git",
-        "github.com/mudler/skillserver/pkg/mcp"
-      ],
-      "license": "MIT",
-      "provenance": "readme-statement",
-      "repository": "https://github.com/mudler/skillserver",
-      "commit": "a7317cbf9145fbff2e03c4d41a8d9a8bdc1f04b5",
-      "source_path": "README.md",
-      "source_sha256": "cd410653e829b5d1133e04d9809820005a2e0e8525ee10d4e98d32a08ee38a0c",
-      "statement": "MIT",
-      "statement_line": 364,
-      "file": "go/github.com/mudler/skillserver@v0.0.7-0.20260520220837-a7317cbf9145/README.license-excerpt.md",
-      "sha256": "daf005969aac8cb4283b3777361f0244f4cce898b9a983a60b7f0d9e96f559bf"
-    },
-    {
       "file": "go/github.com/multiformats/go-base36@v0.2.0/LICENSE.md",
       "license": "Apache-2.0 OR MIT",
       "module": "github.com/multiformats/go-base36",
