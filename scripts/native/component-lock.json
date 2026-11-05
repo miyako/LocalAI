@@ -1,5 +1,44 @@
 {
+  "assets": {
+    "SHA256SUMS": {
+      "id": 711585576,
+      "sha256": "284db283ad9e341325b594a8523eaf673aa6ef4d797db02800d135fff55a8718",
+      "size": 421
+    },
+    "local-ai-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-darwin-arm64-server-cli-only.tar.gz": {
+      "id": 711585575,
+      "sha256": "4a7ee11ed12e68c135775adebbbbfb85353a1f8dcdb31f50ebe500be5f372b7a",
+      "size": 62064737
+    },
+    "local-ai-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-linux-amd64-server-cli-only.tar.gz": {
+      "id": 711585577,
+      "sha256": "2f87ab7ce3df764d234ad42cff5101c57cf90e851010f26d933d01545bee6e12",
+      "size": 64653255
+    },
+    "local-ai-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-linux-arm64-server-cli-only.tar.gz": {
+      "id": 711585578,
+      "sha256": "890e3843cd0987313bb3fae38fe7046e9d9f97537f15716112b4931d89038e53",
+      "size": 59715069
+    }
+  },
   "format": 1,
-  "status": "unconfigured",
-  "reason": "No server-* release exists yet. Publish a validated native release, then adopt its exact tag with scripts/native/release.py. Component Publish must fail until this reviewed lock is configured."
+  "release": {
+    "builder_sha": "e56a9184354be95edb85584c464a884475ceeb69",
+    "id": 434654106,
+    "tag": "server-sha-c9b5d0ff5cfa-c9b5d0ff5cfa-41947357295-1"
+  },
+  "repository": "miyako/LocalAI",
+  "source": {
+    "commit_date": "2026-11-04T22:00:22Z",
+    "locks": {
+      "core/http/react-ui/package-lock.json": "dd8586b69f5c22284b64e0f011f2f713f39bcd04f0ed421264478fa31cc3d7f7",
+      "go.mod": "740d8534c74ec2701b0ca5f06c20495661f2f9e8f76eee2051b4ed7130368fb8",
+      "go.sum": "5eba247599027bab8af1bf84aa4857cf9199a977867c1e1d489475b86e789e5a"
+    },
+    "ref": "c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23",
+    "repository": "mudler/LocalAI",
+    "sha": "c9b5d0ff5cfaa34f3ad3f387d5d79bc471588f23",
+    "version": "sha-c9b5d0ff5cfa"
+  },
+  "status": "configured"
 }
