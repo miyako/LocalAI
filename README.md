@@ -310,9 +310,13 @@ the component version nor an executable filename identifies the server version.
    After versioning, the verified arm64 resource and native metadata/licenses
    are copied transiently into `LocalAI/Resources/`; package Resources are checked
    again before signing. An independent structured 4D compilation report must show
-   `success: true` and no diagnostics, and the compiled `.4DZ`/`.4dz` must be a
+   `success: true` and no diagnostics (warnings included), and the compiled `.4DZ`/`.4dz` must be a
    nonempty valid standard ZIP; the external packaging action's exit code alone
-   is insufficient. Both hosted and self-hosted Publish paths use these gates.
+   is insufficient. That compilation resolves the GitHub dependencies declared in
+   `LocalAI/Project/Sources/dependencies.json` the way 4D's dependency manager
+   does: it downloads each one's stable release `NAME.zip` (latest or the declared
+   tag), logs the resolved tag, and compiles against its `NAME.4DZ`.
+   Both hosted and self-hosted Publish paths use these gates.
    The publishing host must be macOS arm64; legacy Intel/Windows payloads remain
    byte-for-byte unchanged. No native compiler, Go or npm server build is invoked.
 

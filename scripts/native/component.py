@@ -6,7 +6,9 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import re
 import tempfile
+import urllib.parse
 import zipfile
 
 
@@ -26,6 +28,63 @@ def validate_archive(product):
             raise ValueError("Invalid compiled standard-ZIP component archive")
 
 
+def api(endpoint):
+    return json.loads(subprocess.check_output(["gh", "api", endpoint], text=True, timeout=120))
+
+
+def download(repository, asset, path):
+    with path.open("xb") as out:
+        subprocess.run(["gh", "api", f"repos/{repository}/releases/assets/{asset['id']}",
+                        "-H", "Accept: application/octet-stream"],
+                       stdout=out, check=True, timeout=600)
+
+
+def dependencies(project, directory, lookup=api, downloader=download):
+    """Fetch the compiled components the project declares, as the 4D dependency manager does.
+
+    Only GitHub release dependencies are supported. Each must ship NAME.zip holding
+    NAME.4dbase/NAME.4DZ. Resolved release tags are printed for the build log.
+    """
+    manifest = project.parent / "Sources/dependencies.json"
+    if not manifest.is_file():
+        return []
+    declared = json.loads(manifest.read_text(encoding="utf-8-sig")).get("dependencies", {})
+    if not isinstance(declared, dict):
+        raise ValueError("Invalid dependencies.json")
+    components = []
+    for name, spec in sorted(declared.items()):
+        repository = spec.get("github") if isinstance(spec, dict) else None
+        version = spec.get("version", "latest") if isinstance(spec, dict) else None
+        if (not re.fullmatch(r"[A-Za-z0-9_.-]+", name)
+                or not isinstance(repository, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository)
+                or not isinstance(version, str) or not version):
+            raise ValueError(f"Unsupported component dependency declaration: {name}")
+        endpoint = "releases/latest" if version == "latest" else (
+            "releases/tags/" + urllib.parse.quote(version, safe=""))
+        release = lookup(f"repos/{repository}/{endpoint}")
+        if release.get("draft") is not False or release.get("prerelease") is not False:
+            raise ValueError(f"Dependency release must be published and stable: {name}")
+        assets = [a for a in release.get("assets", []) if a.get("name") == name + ".zip"]
+        if len(assets) != 1:
+            raise ValueError(f"Dependency release has no single {name}.zip asset: {repository}")
+        archive = directory / (name + ".zip")
+        downloader(repository, assets[0], archive)
+        root = directory / "Components"
+        with zipfile.ZipFile(archive) as content:
+            for member in content.namelist():
+                path = Path(member)
+                if path.is_absolute() or ".." in path.parts or path.parts[0] != name + ".4dbase":
+                    raise ValueError(f"Unexpected path in dependency archive {name}: {member}")
+            content.extractall(root)
+        compiled = root / (name + ".4dbase") / (name + ".4DZ")
+        if not compiled.is_file() or compiled.stat().st_size == 0:
+            raise ValueError(f"Dependency archive has no compiled {name}.4DZ")
+        print(f"Dependency {name}: {repository}@{release.get('tag_name')} ({version})")
+        components.append(str(compiled.resolve()))
+    return components
+
+
 def check(project, product, compiler, tool):
     method = compiler / "Project/Sources/Methods/native_validate_component.4dm"
     if method.exists():
@@ -34,10 +93,12 @@ def check(project, product, compiler, tool):
     try:
         with tempfile.TemporaryDirectory(prefix="localai-compile-") as temp:
             report = Path(temp) / "compile.json"
+            components = dependencies(project, Path(temp))
             subprocess.run(
                 [str(tool.resolve()), str((compiler / "Project/compiler.4DProject").resolve()),
                  "--skip-onstartup", "--startup-method=native_validate_component",
-                 "--user-param=" + json.dumps({"project": str(project.resolve()), "report": str(report)}),
+                 "--user-param=" + json.dumps({"project": str(project.resolve()), "report": str(report),
+                                               "components": components}),
                  "--dataless"], check=True, timeout=600)
             validate_report(report)
         validate_archive(product)

@@ -12,6 +12,11 @@ $options:=New object:C1471
 $options.generateSymbols:=False:C215
 $options.generateSyntaxFile:=True:C214
 $options.components:=$builder.findComponents($project; True:C214)
+//Declared dependencies (dependencies.json) fetched by component.py, as compiled .4DZ files.
+var $path : Text
+For each ($path; $input.components)
+	$options.components.push(File:C1566($path; fk posix path:K87:1))
+End for each 
 $options.plugins:=$builder.findPluginsFolder($project)
 $options.targets:=New collection:C1472("arm64_macOS_lib"; "x86_64_generic")
 $report:=Compile project:C1760($project; $options)

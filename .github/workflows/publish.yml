@@ -107,6 +107,7 @@ jobs:
 
       - name: Verify packaged pre-sign native Resources
         env:
+          GH_TOKEN: ${{ github.token }}
           PRODUCT_PATH: ${{ steps.build.outputs.product_path }}
         run: |
           python3 scripts/native/component.py --project "$project_path" --product "$PRODUCT_PATH"
@@ -218,6 +219,7 @@ jobs:
 
       - name: Verify packaged pre-sign native Resources
         env:
+          GH_TOKEN: ${{ github.token }}
           PRODUCT_PATH: ${{ steps.build.outputs.product_path }}
         run: |
           python3 scripts/native/component.py --project "$project_path" --product "$PRODUCT_PATH"
