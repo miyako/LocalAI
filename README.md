@@ -182,7 +182,9 @@ closed elsewhere, while add-ons are on by default, so the server exits with
 "addon runtime unavailable" without the flag. Add-on state is also rejected under
 a symlinked ancestor directory (for example macOS `/var` → `/private/var`), so
 point `--data-path` at a real (resolved) path. The CI smoke test runs with
-add-ons disabled on every target.
+add-ons disabled on every target. The 4D component's `start()` sets
+`LOCALAI_ADDONS_ENABLED=false` for the server process unless you pass an explicit
+`addons_enabled` option (see [_LocalAI.md](LocalAI/Documentation/Classes/_LocalAI.md)).
 
 In another terminal:
 

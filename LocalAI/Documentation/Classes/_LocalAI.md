@@ -178,6 +178,14 @@ default-true upstream option. Component metadata is not emitted as CLI flags.
 Pass only flags supported by the selected subcommand; arbitrary option names are
 not validated against the upstream CLI.
 
+**Add-ons are disabled by default.** Upstream's add-on runtime (from the pinned
+master commit `c9b5d0f` onwards) is implemented only for Linux and is on by
+default, so the server would fail to start on macOS and Windows. Unless the
+caller sets `addons_enabled`, `start()` launches the server with the environment
+variable `LOCALAI_ADDONS_ENABLED=false` rather than a flag, because older
+executables reject unknown flags but ignore unknown variables. An explicit
+`addons_enabled` option is emitted as `--addons-enabled=…` and takes precedence.
+
 ## Validation boundary
 
 Run the persistent stdlib checks with
